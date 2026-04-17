@@ -1,0 +1,70 @@
+// src/screens/buyer/Cart/CartScreen.styles.ts
+import { StyleSheet } from 'react-native';
+
+export const styles = StyleSheet.create({
+  container: { flex: 1, backgroundColor: '#F5F5F5' },
+  header: {
+    backgroundColor: '#FFFFFF',
+    paddingTop: 52, paddingBottom: 14, paddingHorizontal: 16,
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    borderBottomWidth: 1, borderBottomColor: '#F0F0F0',
+  },
+  title: { fontSize: 18, fontWeight: '700', color: '#111827' },
+  clearBtn: { paddingVertical: 4, paddingHorizontal: 8 },
+  clearBtnText: { fontSize: 13, color: '#EF4444', fontWeight: '600' },
+  list: { padding: 10, flexGrow: 1 },
+  cartItem: {
+    backgroundColor: '#FFFFFF', borderRadius: 8,
+    padding: 12, marginBottom: 8,
+    flexDirection: 'row', alignItems: 'center',
+    shadowColor: '#000', shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05, shadowRadius: 3, elevation: 1,
+  },
+  itemImage: {
+    width: 70, height: 70, borderRadius: 6,
+    backgroundColor: '#F5F5F5', marginRight: 12,
+    overflow: 'hidden',
+  },
+  itemImageActual: { width: '100%', height: '100%' },
+  itemImagePlaceholder: {
+    width: '100%', height: '100%',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  itemImageIcon: { fontSize: 28, color: '#D1D5DB' },
+  itemInfo: { flex: 1 },
+  itemName: { fontSize: 13, fontWeight: '600', color: '#111827', marginBottom: 4, lineHeight: 18 },
+  itemUnitPrice: { fontSize: 11, color: '#9CA3AF', marginBottom: 6 },
+  itemSubtotal: { fontSize: 14, fontWeight: '800', color: '#E63946' },
+  qtyControls: { flexDirection: 'row', alignItems: 'center', gap: 8, marginLeft: 8 },
+  qtyBtn: {
+    width: 28, height: 28, borderRadius: 4,
+    borderWidth: 1, borderColor: '#E5E7EB',
+    alignItems: 'center', justifyContent: 'center',
+    backgroundColor: '#F9FAFB',
+  },
+  qtyBtnPressed: { backgroundColor: '#F3F4F6' },
+  qtyBtnDisabled: { opacity: 0.4 },
+  qtyBtnText: { fontSize: 16, fontWeight: '700', color: '#374151' },
+  qtyValue: { fontSize: 14, fontWeight: '700', color: '#111827', minWidth: 20, textAlign: 'center' },
+  emptyContainer: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingTop: 80 },
+  emptyIcon: { fontSize: 56, marginBottom: 14 },
+  emptyTitle: { fontSize: 16, fontWeight: '700', color: '#374151', marginBottom: 6 },
+  emptySubtitle: { fontSize: 13, color: '#9CA3AF', textAlign: 'center' },
+  footer: {
+    backgroundColor: '#FFFFFF',
+    padding: 16, paddingBottom: 24,
+    borderTopWidth: 1, borderTopColor: '#F0F0F0',
+  },
+  summaryRow: {
+    flexDirection: 'row', justifyContent: 'space-between',
+    alignItems: 'center', marginBottom: 12,
+  },
+  summaryLabel: { fontSize: 14, color: '#6B7280' },
+  summaryValue: { fontSize: 18, fontWeight: '800', color: '#111827' },
+  checkoutBtn: {
+    backgroundColor: '#E63946', borderRadius: 8,
+    paddingVertical: 14, alignItems: 'center',
+  },
+  checkoutBtnPressed: { opacity: 0.85 },
+  checkoutText: { color: '#FFFFFF', fontSize: 15, fontWeight: '700' },
+});

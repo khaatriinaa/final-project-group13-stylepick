@@ -1,0 +1,53 @@
+// src/screens/buyer/Notifications/BuyerNotificationsScreen.styles.ts
+import { StyleSheet } from 'react-native';
+
+export const styles = StyleSheet.create({
+  container: { flex: 1, backgroundColor: '#F9FAFB' },
+  header: {
+    backgroundColor: '#FFFFFF',
+    paddingTop: 56,
+    paddingBottom: 16,
+    paddingHorizontal: 20,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    borderBottomWidth: 1,
+    borderBottomColor: '#F3F4F6',
+  },
+  title: { fontSize: 22, fontWeight: '800', color: '#111827' },
+  markAllBtn: { paddingVertical: 4, paddingHorizontal: 8 },
+  markAllText: { fontSize: 13, color: '#2563EB', fontWeight: '600' },
+  list: { padding: 16 },
+  item: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 14,
+    padding: 14,
+    marginBottom: 10,
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 1,
+  },
+  itemUnread: {
+    borderLeftWidth: 3,
+    borderLeftColor: '#E63946',
+  },
+  itemPressed: { opacity: 0.85 },
+  dot: {
+    width: 8, height: 8, borderRadius: 4,
+    backgroundColor: '#E63946', marginTop: 5,
+  },
+  dotRead: { backgroundColor: 'transparent' },
+  itemBody: { flex: 1 },
+  itemMessage: { fontSize: 14, color: '#374151', fontWeight: '600', lineHeight: 20 },
+  itemMessageRead: { fontWeight: '400', color: '#6B7280' },
+  itemTime: { fontSize: 11, color: '#9CA3AF', marginTop: 4 },
+  emptyContainer: { alignItems: 'center', paddingTop: 80 },
+  emptyEmoji: { fontSize: 48, marginBottom: 12 },
+  emptyTitle: { fontSize: 17, fontWeight: '700', color: '#374151', marginBottom: 4 },
+  emptyText: { fontSize: 14, color: '#9CA3AF' },
+});
