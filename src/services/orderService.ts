@@ -10,12 +10,28 @@ import {
   notifyNewOrder,
   notifyOrderStatusUpdate,
 } from './pushNotificationService';
+import { supabase } from './supabaseClient'; // ← ADDED
 
 const generateId = () => Math.random().toString(36).slice(2) + Date.now().toString(36);
 
 // ─── READ: Buyer's orders ─────────────────────────────────────
 export const getMyOrdersAsBuyer = async (buyerId: string): Promise<Order[]> => {
   const all = await Storage.getList<Order>(KEYS.ORDERS);
+
+  // ─── SUPABASE: Fetch buyer's orders from Supabase ────────────
+  try {
+    const { data, error } = await supabase
+      .from('orders')
+      .select('*, order_items(*, products(*))')
+      .eq('buyer_id', buyerId)
+      .order('created_at', { ascending: false });
+    if (error) throw error;
+    if (data && data.length > 0) return data as unknown as Order[];
+  } catch (supabaseError) {
+    console.warn('Supabase getMyOrdersAsBuyer error (falling back to local):', supabaseError);
+  }
+  // ─────────────────────────────────────────────────────────────
+
   return all
     .filter((o) => o.buyerId === buyerId)
     .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
@@ -24,6 +40,21 @@ export const getMyOrdersAsBuyer = async (buyerId: string): Promise<Order[]> => {
 // ─── READ: Seller's orders ────────────────────────────────────
 export const getMyOrdersAsSeller = async (sellerId: string): Promise<Order[]> => {
   const all = await Storage.getList<Order>(KEYS.ORDERS);
+
+  // ─── SUPABASE: Fetch seller's orders from Supabase ───────────
+  try {
+    const { data, error } = await supabase
+      .from('orders')
+      .select('*, order_items(*, products(*))')
+      .eq('seller_id', sellerId)
+      .order('created_at', { ascending: false });
+    if (error) throw error;
+    if (data && data.length > 0) return data as unknown as Order[];
+  } catch (supabaseError) {
+    console.warn('Supabase getMyOrdersAsSeller error (falling back to local):', supabaseError);
+  }
+  // ─────────────────────────────────────────────────────────────
+
   return all
     .filter((o) => o.sellerId === sellerId)
     .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
@@ -84,6 +115,35 @@ export const placeOrder = async (payload: PlaceOrderPayload): Promise<Order> => 
   await notifyOrderPlaced(newOrder.id, totalAmount);
   await notifyNewOrder(newOrder.id, totalAmount);
 
+  // ─── SUPABASE: Insert new order + order items into Supabase ──
+  try {
+    const { error: orderError } = await supabase.from('orders').insert({
+      id:               newOrder.id,
+      buyer_id:         newOrder.buyerId,
+      seller_id:        newOrder.sellerId,
+      status:           newOrder.status,
+      payment_status:   newOrder.paymentStatus,
+      payment_method:   newOrder.paymentMethod,
+      shipping_address: newOrder.shippingAddress,
+      total_amount:     newOrder.totalAmount,
+      created_at:       newOrder.createdAt,
+      updated_at:       newOrder.updatedAt,
+    });
+    if (orderError) throw orderError;
+
+    const orderItems = payload.items.map((item) => ({
+      order_id:   newOrder.id,
+      product_id: item.product.id,
+      quantity:   item.quantity,
+      price:      item.product.price,
+    }));
+    const { error: itemsError } = await supabase.from('order_items').insert(orderItems);
+    if (itemsError) throw itemsError;
+  } catch (supabaseError) {
+    console.warn('Supabase placeOrder error (local save succeeded):', supabaseError);
+  }
+  // ─────────────────────────────────────────────────────────────
+
   return newOrder;
 };
 
@@ -125,6 +185,32 @@ export const updateOrderStatus = async (
     // Push notification to buyer's phone
     await notifyOrderStatusUpdate(orderId, label);
   }
+
+  // ─── SUPABASE: Update order status in Supabase ───────────────
+  try {
+    const paymentStatus =
+      newStatus === 'delivered' ? 'paid' :
+      newStatus === 'cancelled' ? 'cancelled' :
+      newStatus === 'refunded'  ? 'refunded' :
+      undefined;
+
+    const supabaseUpdates: Record<string, any> = {
+      status:     newStatus,
+      updated_at: now,
+    };
+    if (paymentStatus !== undefined) {
+      supabaseUpdates.payment_status = paymentStatus;
+    }
+
+    const { error } = await supabase
+      .from('orders')
+      .update(supabaseUpdates)
+      .eq('id', orderId);
+    if (error) throw error;
+  } catch (supabaseError) {
+    console.warn('Supabase updateOrderStatus error (local update succeeded):', supabaseError);
+  }
+  // ─────────────────────────────────────────────────────────────
 };
 
 // ─── UPDATE: Buyer cancels a pending order ───────────────────
@@ -147,4 +233,20 @@ export const cancelOrder = async (orderId: string, sellerId: string): Promise<vo
     message: `Order #${orderId.slice(0, 8).toUpperCase()} was cancelled by the buyer.`,
     orderId,
   });
+
+  // ─── SUPABASE: Cancel order in Supabase ──────────────────────
+  try {
+    const { error } = await supabase
+      .from('orders')
+      .update({
+        status:         'cancelled',
+        payment_status: 'cancelled',
+        updated_at:     now,
+      })
+      .eq('id', orderId);
+    if (error) throw error;
+  } catch (supabaseError) {
+    console.warn('Supabase cancelOrder error (local update succeeded):', supabaseError);
+  }
+  // ─────────────────────────────────────────────────────────────
 };

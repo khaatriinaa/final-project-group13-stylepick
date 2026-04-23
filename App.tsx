@@ -7,6 +7,7 @@ import { CartProvider } from './src/context/CartContext';
 import AppNavigator from './src/navigation/AppNavigator';
 import { registerForPushNotificationsAsync } from './src/services/pushNotificationService';
 
+
 export default function App() {
   useEffect(() => {
     // Register device for push notifications on app launch
