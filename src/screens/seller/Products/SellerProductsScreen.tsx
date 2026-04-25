@@ -101,7 +101,7 @@ export default function SellerProductsScreen({ navigation }: SellerProductsScree
         <Text style={styles.title}>My Products ({products.length})</Text>
         <Pressable
           style={({ pressed }) => [styles.addBtn, pressed && styles.addBtnPressed]}
-          onPress={() => stackNav.navigate('AddProduct', {})}
+          onPress={() => stackNav.navigate('AddProduct', { productId: undefined })}
         >
           <Text style={styles.addBtnText}>+ Add Product</Text>
         </Pressable>

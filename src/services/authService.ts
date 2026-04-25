@@ -265,9 +265,15 @@ export const updateProfile = async (
 
     // ─── SUPABASE: Update profile in Supabase profiles table ─────────
     try {
+      const supabaseUpdates: Record<string, any> = {};
+      if (updates.name           !== undefined) supabaseUpdates.full_name    = updates.name;
+      if (updates.phone          !== undefined) supabaseUpdates.phone_number = updates.phone;
+      if (updates.address        !== undefined) supabaseUpdates.address      = updates.address;
+      if (updates.profilePicture !== undefined) supabaseUpdates.avatar_url   = updates.profilePicture;
+
       const { error } = await supabase
         .from('profiles')
-        .update(updates)
+        .update(supabaseUpdates)
         .eq('id', userId);
       if (error) throw error;
     } catch (supabaseError) {

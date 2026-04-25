@@ -168,15 +168,13 @@ export default function AppNavigator() {
   return (
     <NavigationContainer>
       <RootStack.Navigator screenOptions={{ headerShown: false }}>
-        <>
-          {!user ? (
-            <RootStack.Screen name="Auth"   component={AuthNavigator} />
-          ) : user.role === 'buyer' ? (
-            <RootStack.Screen name="Buyer"  component={BuyerNavigator} />
-          ) : (
-            <RootStack.Screen name="Seller" component={SellerNavigator} />
-          )}
-        </>
+        {!user ? (
+          <RootStack.Screen name="Auth"   component={AuthNavigator} />
+        ) : user.role === 'buyer' ? (
+          <RootStack.Screen name="Buyer"  component={BuyerNavigator} />
+        ) : (
+          <RootStack.Screen name="Seller" component={SellerNavigator} />
+        )}
       </RootStack.Navigator>
     </NavigationContainer>
   );

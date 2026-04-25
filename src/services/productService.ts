@@ -8,6 +8,22 @@ import { supabase } from './supabaseClient'; // ← ADDED
 
 const generateId = () => Math.random().toString(36).slice(2) + Date.now().toString(36);
 
+// ─── Map Supabase snake_case rows → camelCase Product ────────
+const mapRow = (row: any): Product => ({
+  id:          row.id,
+  sellerId:    row.seller_id   ?? row.sellerId,
+  name:        row.name,
+  price:       row.price,
+  description: row.description,
+  stock:       row.stock,
+  images:      row.images      ?? [],
+  category:    row.category    ?? '',
+  isArchived:  row.is_archived ?? row.isArchived ?? false,
+  createdAt:   row.created_at  ?? row.createdAt  ?? new Date().toISOString(),
+  colors:      row.colors      ?? [],
+  sizes:       row.sizes       ?? [],
+});
+
 // ─── READ: All active products (Buyer Home) ───────────────────
 export const getProducts = async (): Promise<Product[]> => {
   const all = await Storage.getList<Product>(KEYS.PRODUCTS);
@@ -19,7 +35,7 @@ export const getProducts = async (): Promise<Product[]> => {
       .select('*')
       .eq('is_archived', false);
     if (error) throw error;
-    if (data && data.length > 0) return data as Product[];
+    if (data && data.length > 0) return data.map(mapRow);
   } catch (supabaseError) {
     console.warn('Supabase getProducts error (falling back to local):', supabaseError);
   }
@@ -40,7 +56,7 @@ export const getProductById = async (productId: string): Promise<Product | null>
       .eq('id', productId)
       .single();
     if (error) throw error;
-    if (data) return data as Product;
+    if (data) return mapRow(data);
   } catch (supabaseError) {
     console.warn('Supabase getProductById error (falling back to local):', supabaseError);
   }
@@ -60,7 +76,7 @@ export const getMyProducts = async (sellerId: string): Promise<Product[]> => {
       .select('*')
       .eq('seller_id', sellerId);
     if (error) throw error;
-    if (data && data.length > 0) return data as Product[];
+    if (data && data.length > 0) return data.map(mapRow);
   } catch (supabaseError) {
     console.warn('Supabase getMyProducts error (falling back to local):', supabaseError);
   }
@@ -93,6 +109,8 @@ export const createProduct = async (payload: CreateProductPayload): Promise<Prod
       stock:       newProduct.stock,
       images:      newProduct.images,
       category:    newProduct.category,
+      colors:      newProduct.colors ?? [],
+      sizes:       newProduct.sizes  ?? [],
       is_archived: newProduct.isArchived,
       created_at:  newProduct.createdAt,
     });
@@ -133,6 +151,8 @@ export const updateProduct = async (
     if (updates.stock       !== undefined) supabaseUpdates.stock       = updates.stock;
     if (updates.images      !== undefined) supabaseUpdates.images      = updates.images;
     if (updates.category    !== undefined) supabaseUpdates.category    = updates.category;
+    if (updates.colors      !== undefined) supabaseUpdates.colors      = updates.colors;
+    if (updates.sizes       !== undefined) supabaseUpdates.sizes       = updates.sizes;
     if (updates.isArchived  !== undefined) supabaseUpdates.is_archived = updates.isArchived;
 
     const { error } = await supabase

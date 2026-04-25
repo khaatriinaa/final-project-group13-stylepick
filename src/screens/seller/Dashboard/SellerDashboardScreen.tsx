@@ -13,9 +13,8 @@ import {
   Animated,
   Dimensions,
 } from 'react-native';
-import { useFocusEffect, useNavigation, DrawerActions } from '@react-navigation/native';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { DrawerNavigationProp } from '@react-navigation/drawer';
 import { SellerDashboardScreenProps, SellerStackParamList } from '../../../props/props';
 import { Order, OrderStatus } from '../../../types';
 import { getMyOrdersAsSeller, getSellerStats } from '../../../services/orderService';
@@ -135,19 +134,9 @@ export default function SellerDashboardScreen({ navigation }: SellerDashboardScr
   const [salesDropdownOpen, setSalesDropdownOpen] = useState(false);
   const [orderDropdownOpen, setOrderDropdownOpen] = useState(false);
 
-  // ── Open drawer — walk up the navigator tree to find the drawer ──
+  // ── No drawer navigator in this app — burger is decorative only ──
   const openDrawer = () => {
-    // navigation.getParent() walks up one level; keep going until we
-    // find a navigator that knows how to open a drawer.
-    let nav: any = navigation;
-    while (nav) {
-      try {
-        nav.dispatch(DrawerActions.openDrawer());
-        return; // success — stop walking
-      } catch {
-        nav = nav.getParent?.();
-      }
-    }
+    // No drawer navigator; button intentionally does nothing.
   };
 
   // ── Fetch ──────────────────────────────────────────────────
