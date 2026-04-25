@@ -12,28 +12,58 @@ export interface User {
   phone?: string;
 }
 
+// ─── Product ──────────────────────────────────────────────────────────────────
+
+export type ProductCondition = 'new' | 'like_new' | 'good' | 'fair';
+export type ShippingMethod   = 'standard' | 'express' | 'same_day' | 'pickup';
+
 export interface Product {
-  id: string;
-  sellerId: string;
-  name: string;
-  price: number;
-  description: string;
-  stock: number;
-  images: string[];
-  category: string;
-  isArchived: boolean;
+  id:        string;
+  sellerId:  string;
   createdAt: string;
-  // Fashion-specific
-  colors?: string[];   // e.g. ['#000000', '#FFFFFF', '#FF0000']
-  sizes?: string[];    // e.g. ['XS', 'S', 'M', 'L', 'XL', 'XXL']
+  updatedAt?: string;
+
+  // Core Info
+  name:        string;
+  description: string;
+  category:    string;
+  condition:   ProductCondition;
+  sku?:        string | null;
+
+  // Pricing
+  price:         number;
+  comparePrice?: number | null;  // slashed/original price shown to buyers
+  costPrice?:    number | null;  // private, for seller margin tracking only
+
+  // Inventory
+  stock:   number;
+  weight?: number | null;        // in kg, used for shipping calculation
+
+  // Variants
+  images: string[];
+  colors: string[];              // hex values e.g. ['#1A1A1A', '#FFFFFF']
+  sizes:  string[];              // e.g. ['XS','S','M'] or ['39','40','41']
+
+  // Shipping & Policy
+  shippingMethods: ShippingMethod[];
+  shippingNotes?:  string | null;
+  returnPolicy?:   string | null;
+
+  // Status
+  isArchived: boolean;
+  isFeatured: boolean;
 }
 
+// ─── Cart ─────────────────────────────────────────────────────────────────────
+
 export interface CartItem {
-  product: Product;
-  quantity: number;
+  product:        Product;
+  quantity:       number;
   selectedColor?: string;
-  selectedSize?: string;
+  selectedSize?:  string;
 }
+
+// ─── Order ───────────────────────────────────────────────────────────────────
 
 export type OrderStatus =
   | 'pending'
@@ -47,24 +77,26 @@ export type OrderStatus =
 export type PaymentStatus = 'pending' | 'paid' | 'refunded' | 'cancelled';
 
 export interface Order {
-  id: string;
-  buyerId: string;
-  sellerId: string;
-  items: CartItem[];
-  status: OrderStatus;
-  paymentStatus: PaymentStatus;
-  paymentMethod: 'COD';
+  id:              string;
+  buyerId:         string;
+  sellerId:        string;
+  items:           CartItem[];
+  status:          OrderStatus;
+  paymentStatus:   PaymentStatus;
+  paymentMethod:   'COD';
   shippingAddress: string;
-  totalAmount: number;
-  createdAt: string;
-  updatedAt: string;
+  totalAmount:     number;
+  createdAt:       string;
+  updatedAt:       string;
 }
 
+// ─── Notification ─────────────────────────────────────────────────────────────
+
 export interface Notification {
-  id: string;
-  userId: string;
-  message: string;
-  isRead: boolean;
-  orderId?: string;
+  id:        string;
+  userId:    string;
+  message:   string;
+  isRead:    boolean;
+  orderId?:  string;
   createdAt: string;
 }

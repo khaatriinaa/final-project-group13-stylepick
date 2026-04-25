@@ -1,54 +1,87 @@
 // src/services/productService.ts
-// Seller writes → AsyncStorage → Buyer reads from same device storage
 
 import { Storage } from '../storage/storage';
 import { KEYS } from '../storage/keys';
-import { Product } from '../types';
-import { supabase } from './supabaseClient'; // ← ADDED
+import { Product, ProductCondition, ShippingMethod } from '../types';
+import { supabase } from './supabaseClient';
 
 const generateId = () => Math.random().toString(36).slice(2) + Date.now().toString(36);
 
-// ─── Map Supabase snake_case rows → camelCase Product ────────
+// ─── Supabase row → Product ───────────────────────────────────────────────────
+
 const mapRow = (row: any): Product => ({
-  id:          row.id,
-  sellerId:    row.seller_id   ?? row.sellerId,
-  name:        row.name,
-  price:       row.price,
-  description: row.description,
-  stock:       row.stock,
-  images:      row.images      ?? [],
-  category:    row.category    ?? '',
-  isArchived:  row.is_archived ?? row.isArchived ?? false,
-  createdAt:   row.created_at  ?? row.createdAt  ?? new Date().toISOString(),
-  colors:      row.colors      ?? [],
-  sizes:       row.sizes       ?? [],
+  id:              row.id,
+  sellerId:        row.seller_id      ?? row.sellerId,
+  name:            row.name,
+  description:     row.description,
+  category:        row.category       ?? '',
+  condition:       (row.condition     ?? 'new') as ProductCondition,
+  sku:             row.sku            ?? null,
+  price:           Number(row.price),
+  comparePrice:    row.compare_price  != null ? Number(row.compare_price)  : null,
+  costPrice:       row.cost_price     != null ? Number(row.cost_price)     : null,
+  stock:           row.stock,
+  weight:          row.weight_kg      != null ? Number(row.weight_kg)      : null,
+  images:          row.images         ?? [],
+  colors:          row.colors         ?? [],
+  sizes:           row.sizes          ?? [],
+  shippingMethods: (row.shipping_methods ?? ['standard']) as ShippingMethod[],
+  shippingNotes:   row.shipping_notes ?? null,
+  returnPolicy:    row.return_policy  ?? null,
+  isArchived:      row.is_archived    ?? row.isArchived  ?? false,
+  isFeatured:      row.is_featured    ?? row.isFeatured  ?? false,
+  createdAt:       row.created_at     ?? row.createdAt   ?? new Date().toISOString(),
+  updatedAt:       row.updated_at     ?? row.updatedAt,
 });
 
-// ─── READ: All active products (Buyer Home) ───────────────────
-export const getProducts = async (): Promise<Product[]> => {
-  const all = await Storage.getList<Product>(KEYS.PRODUCTS);
+// ─── Product → Supabase insert/update row ─────────────────────────────────────
 
-  // ─── SUPABASE: Fetch all active products from Supabase ───────
+const toRow = (p: Partial<Product>): Record<string, any> => {
+  const row: Record<string, any> = {};
+  if (p.sellerId        !== undefined) row.seller_id        = p.sellerId;
+  if (p.name            !== undefined) row.name             = p.name;
+  if (p.description     !== undefined) row.description      = p.description;
+  if (p.category        !== undefined) row.category         = p.category;
+  if (p.condition       !== undefined) row.condition        = p.condition;
+  if ('sku'             in p)          row.sku              = p.sku;
+  if (p.price           !== undefined) row.price            = p.price;
+  if ('comparePrice'    in p)          row.compare_price    = p.comparePrice;
+  if ('costPrice'       in p)          row.cost_price       = p.costPrice;
+  if (p.stock           !== undefined) row.stock            = p.stock;
+  if ('weight'          in p)          row.weight_kg        = p.weight;
+  if (p.images          !== undefined) row.images           = p.images;
+  if (p.colors          !== undefined) row.colors           = p.colors;
+  if (p.sizes           !== undefined) row.sizes            = p.sizes;
+  if (p.shippingMethods !== undefined) row.shipping_methods = p.shippingMethods;
+  if ('shippingNotes'   in p)          row.shipping_notes   = p.shippingNotes;
+  if ('returnPolicy'    in p)          row.return_policy    = p.returnPolicy;
+  if (p.isArchived      !== undefined) row.is_archived      = p.isArchived;
+  if (p.isFeatured      !== undefined) row.is_featured      = p.isFeatured;
+  return row;
+};
+
+// ─── READ: All active products (Buyer Home) ───────────────────────────────────
+
+export const getProducts = async (): Promise<Product[]> => {
   try {
     const { data, error } = await supabase
       .from('products')
       .select('*')
-      .eq('is_archived', false);
+      .eq('is_archived', false)
+      .order('created_at', { ascending: false });
     if (error) throw error;
     if (data && data.length > 0) return data.map(mapRow);
-  } catch (supabaseError) {
-    console.warn('Supabase getProducts error (falling back to local):', supabaseError);
+  } catch (err) {
+    console.warn('Supabase getProducts error (falling back to local):', err);
   }
-  // ─────────────────────────────────────────────────────────────
 
+  const all = await Storage.getList<Product>(KEYS.PRODUCTS);
   return all.filter((p) => !p.isArchived);
 };
 
-// ─── READ: Single product by ID ──────────────────────────────
-export const getProductById = async (productId: string): Promise<Product | null> => {
-  const all = await Storage.getList<Product>(KEYS.PRODUCTS);
+// ─── READ: Single product by ID ───────────────────────────────────────────────
 
-  // ─── SUPABASE: Fetch single product from Supabase ────────────
+export const getProductById = async (productId: string): Promise<Product | null> => {
   try {
     const { data, error } = await supabase
       .from('products')
@@ -57,83 +90,77 @@ export const getProductById = async (productId: string): Promise<Product | null>
       .single();
     if (error) throw error;
     if (data) return mapRow(data);
-  } catch (supabaseError) {
-    console.warn('Supabase getProductById error (falling back to local):', supabaseError);
+  } catch (err) {
+    console.warn('Supabase getProductById error (falling back to local):', err);
   }
-  // ─────────────────────────────────────────────────────────────
 
+  const all = await Storage.getList<Product>(KEYS.PRODUCTS);
   return all.find((p) => p.id === productId) ?? null;
 };
 
-// ─── READ: Seller's own products (all, including archived) ────
-export const getMyProducts = async (sellerId: string): Promise<Product[]> => {
-  const all = await Storage.getList<Product>(KEYS.PRODUCTS);
+// ─── READ: Seller's own products (all, including archived) ───────────────────
 
-  // ─── SUPABASE: Fetch seller's own products from Supabase ─────
+export const getMyProducts = async (sellerId: string): Promise<Product[]> => {
   try {
     const { data, error } = await supabase
       .from('products')
       .select('*')
-      .eq('seller_id', sellerId);
+      .eq('seller_id', sellerId)
+      .order('created_at', { ascending: false });
     if (error) throw error;
     if (data && data.length > 0) return data.map(mapRow);
-  } catch (supabaseError) {
-    console.warn('Supabase getMyProducts error (falling back to local):', supabaseError);
+  } catch (err) {
+    console.warn('Supabase getMyProducts error (falling back to local):', err);
   }
-  // ─────────────────────────────────────────────────────────────
 
+  const all = await Storage.getList<Product>(KEYS.PRODUCTS);
   return all.filter((p) => p.sellerId === sellerId);
 };
 
-// ─── CREATE ──────────────────────────────────────────────────
-export type CreateProductPayload = Omit<Product, 'id' | 'createdAt' | 'isArchived'>;
+// ─── CREATE ───────────────────────────────────────────────────────────────────
+
+export type CreateProductPayload = Omit<Product, 'id' | 'createdAt' | 'updatedAt' | 'isArchived' | 'isFeatured'>;
 
 export const createProduct = async (payload: CreateProductPayload): Promise<Product> => {
-  const all = await Storage.getList<Product>(KEYS.PRODUCTS);
   const newProduct: Product = {
     ...payload,
     id:         generateId(),
     isArchived: false,
+    isFeatured: false,
     createdAt:  new Date().toISOString(),
   };
+
+  // Persist locally first (offline-safe)
+  const all = await Storage.getList<Product>(KEYS.PRODUCTS);
   await Storage.set(KEYS.PRODUCTS, [...all, newProduct]);
 
-  // ─── SUPABASE: Insert new product into Supabase ──────────────
+  // Sync to Supabase
   try {
-    const { error } = await supabase.from('products').insert({
-      id:          newProduct.id,
-      seller_id:   newProduct.sellerId,
-      name:        newProduct.name,
-      description: newProduct.description,
-      price:       newProduct.price,
-      stock:       newProduct.stock,
-      images:      newProduct.images,
-      category:    newProduct.category,
-      colors:      newProduct.colors ?? [],
-      sizes:       newProduct.sizes  ?? [],
-      is_archived: newProduct.isArchived,
-      created_at:  newProduct.createdAt,
-    });
+    const { error } = await supabase
+      .from('products')
+      .insert({ ...toRow(newProduct), id: newProduct.id, created_at: newProduct.createdAt });
     if (error) throw error;
-  } catch (supabaseError) {
-    console.warn('Supabase createProduct error (local save succeeded):', supabaseError);
+  } catch (err) {
+    console.warn('Supabase createProduct error (local save succeeded):', err);
   }
-  // ─────────────────────────────────────────────────────────────
 
   return newProduct;
 };
 
-// ─── UPDATE ──────────────────────────────────────────────────
+// ─── UPDATE ───────────────────────────────────────────────────────────────────
+
+export type UpdateProductPayload = Partial<Omit<Product, 'id' | 'sellerId' | 'createdAt'>>;
+
 export const updateProduct = async (
   productId: string,
-  updates: Partial<Omit<Product, 'id' | 'sellerId' | 'createdAt'>>
+  updates: UpdateProductPayload,
 ): Promise<Product> => {
   const all = await Storage.getList<Product>(KEYS.PRODUCTS);
   let updated: Product | null = null;
 
   const newList = all.map((p) => {
     if (p.id === productId) {
-      updated = { ...p, ...updates };
+      updated = { ...p, ...updates, updatedAt: new Date().toISOString() };
       return updated;
     }
     return p;
@@ -142,66 +169,59 @@ export const updateProduct = async (
   if (!updated) throw new Error('Product not found.');
   await Storage.set(KEYS.PRODUCTS, newList);
 
-  // ─── SUPABASE: Update product in Supabase ────────────────────
+  // Sync to Supabase
   try {
-    const supabaseUpdates: Record<string, any> = {};
-    if (updates.name        !== undefined) supabaseUpdates.name        = updates.name;
-    if (updates.description !== undefined) supabaseUpdates.description = updates.description;
-    if (updates.price       !== undefined) supabaseUpdates.price       = updates.price;
-    if (updates.stock       !== undefined) supabaseUpdates.stock       = updates.stock;
-    if (updates.images      !== undefined) supabaseUpdates.images      = updates.images;
-    if (updates.category    !== undefined) supabaseUpdates.category    = updates.category;
-    if (updates.colors      !== undefined) supabaseUpdates.colors      = updates.colors;
-    if (updates.sizes       !== undefined) supabaseUpdates.sizes       = updates.sizes;
-    if (updates.isArchived  !== undefined) supabaseUpdates.is_archived = updates.isArchived;
-
     const { error } = await supabase
       .from('products')
-      .update(supabaseUpdates)
+      .update({ ...toRow(updates), updated_at: new Date().toISOString() })
       .eq('id', productId);
     if (error) throw error;
-  } catch (supabaseError) {
-    console.warn('Supabase updateProduct error (local update succeeded):', supabaseError);
+  } catch (err) {
+    console.warn('Supabase updateProduct error (local update succeeded):', err);
   }
-  // ─────────────────────────────────────────────────────────────
 
   return updated;
 };
 
-// ─── ARCHIVE (soft delete) ───────────────────────────────────
+// ─── ARCHIVE (soft delete) ────────────────────────────────────────────────────
+
 export const archiveProduct = async (productId: string): Promise<void> => {
   await updateProduct(productId, { isArchived: true });
 };
 
-// ─── DECREMENT STOCK after purchase ──────────────────────────
+// ─── DECREMENT STOCK after purchase ──────────────────────────────────────────
+
 export const decrementStock = async (productId: string, qty: number): Promise<void> => {
+  // Local update
   const all = await Storage.getList<Product>(KEYS.PRODUCTS);
-  const newList = all.map((p) => {
-    if (p.id === productId) {
-      const newStock = Math.max(0, p.stock - qty);
-      return { ...p, stock: newStock };
-    }
-    return p;
-  });
+  const newList = all.map((p) =>
+    p.id === productId ? { ...p, stock: Math.max(0, p.stock - qty) } : p,
+  );
   await Storage.set(KEYS.PRODUCTS, newList);
 
-  // ─── SUPABASE: Decrement stock in Supabase ───────────────────
+  // Supabase: prefer RPC to avoid race conditions on concurrent purchases
   try {
-    const { data, error: fetchError } = await supabase
-      .from('products')
-      .select('stock')
-      .eq('id', productId)
-      .single();
-    if (fetchError) throw fetchError;
-
-    const newStock = Math.max(0, (data.stock ?? 0) - qty);
-    const { error: updateError } = await supabase
-      .from('products')
-      .update({ stock: newStock })
-      .eq('id', productId);
-    if (updateError) throw updateError;
-  } catch (supabaseError) {
-    console.warn('Supabase decrementStock error (local update succeeded):', supabaseError);
+    const { error } = await supabase.rpc('decrement_product_stock', {
+      p_id:  productId,
+      p_qty: qty,
+    });
+    if (error) throw error;
+  } catch (err) {
+    console.warn('Supabase decrementStock RPC error, trying fallback:', err);
+    // Fallback: fetch-then-update (less safe under concurrency)
+    try {
+      const { data, error: fetchErr } = await supabase
+        .from('products')
+        .select('stock')
+        .eq('id', productId)
+        .single();
+      if (fetchErr) throw fetchErr;
+      await supabase
+        .from('products')
+        .update({ stock: Math.max(0, (data.stock ?? 0) - qty) })
+        .eq('id', productId);
+    } catch (fallbackErr) {
+      console.warn('Supabase decrementStock fallback also failed:', fallbackErr);
+    }
   }
-  // ─────────────────────────────────────────────────────────────
 };
