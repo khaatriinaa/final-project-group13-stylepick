@@ -1,6 +1,9 @@
 // src/context/CartContext.tsx
-import React, { createContext, useContext, useState, useCallback, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useCallback, useEffect, ReactNode } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { CartItem, Product } from '../types';
+
+const CART_STORAGE_KEY = '@cart_items';
 
 interface CartContextValue {
   cartItems: CartItem[];
@@ -20,9 +23,22 @@ const CartContext = createContext<CartContextValue>({
 export function CartProvider({ children }: { children: ReactNode }) {
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
 
+  // Load from AsyncStorage on mount
+  useEffect(() => {
+    AsyncStorage.getItem(CART_STORAGE_KEY)
+      .then((json) => {
+        if (json) setCartItems(JSON.parse(json));
+      })
+      .catch(console.error);
+  }, []);
+
+  // Save to AsyncStorage whenever cartItems changes
+  useEffect(() => {
+    AsyncStorage.setItem(CART_STORAGE_KEY, JSON.stringify(cartItems)).catch(console.error);
+  }, [cartItems]);
+
   const addToCart = useCallback((product: Product, quantity = 1, color?: string, size?: string) => {
     setCartItems((prev) => {
-      // Match by product + color + size combination
       const existing = prev.find((i) =>
         i.product.id === product.id &&
         i.selectedColor === (color ?? null) &&

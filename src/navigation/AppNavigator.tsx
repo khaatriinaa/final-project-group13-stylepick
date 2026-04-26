@@ -7,6 +7,7 @@ import { Text, ActivityIndicator, View, Pressable, StyleSheet, Platform } from '
 import { useAuth } from '../context/AuthContext';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { Ionicons } from '@expo/vector-icons';
 
 import {
   RootStackParamList,
@@ -31,13 +32,14 @@ import BuyerProfileScreen from '../screens/buyer/Profile/BuyerProfileScreen';
 import CheckoutScreen from '../screens/buyer/Checkout/CheckoutScreen';
 import BuyerNotificationsScreen from '../screens/buyer/Notifications/BuyerNotificationsScreen';
 import EditProfileScreen from '../screens/buyer/EditProfile/EditProfileScreen';
+import FavoritesScreen from '../screens/buyer/Favorites/FavoritesScreen'; // 👈 added
 
 // Seller
 import SellerDashboardScreen from '../screens/seller/Dashboard/SellerDashboardScreen';
 import SellerProductsScreen from '../screens/seller/Products/SellerProductsScreen';
 import AddProductScreen from '../screens/seller/AddProduct/AddProductScreen';
 import SellerOrdersScreen from '../screens/seller/Orders/SellerOrdersScreen';
-import SellerOrderDetailScreen from '../screens/seller/Orders/SellerOrderDetailScreen'; // IMPORT ADDED
+import SellerOrderDetailScreen from '../screens/seller/Orders/SellerOrderDetailScreen';
 import SellerProfileScreen from '../screens/seller/Profile/SellerProfileScreen';
 import SellerNotificationsScreen from '../screens/seller/Notifications/SellerNotificationsScreen';
 
@@ -62,9 +64,21 @@ function BuyerTabNavigator() {
     <BuyerTab.Navigator
       screenOptions={({ route }) => ({
         headerShown: false,
-        tabBarIcon: ({ focused }: { focused: boolean }) => {
-          const icons: Record<string, string> = { Home: '⌂', Cart: '⊕', Orders: '◫', Profile: '◎' };
-          return <Text style={{ fontSize: 18, color: focused ? '#E63946' : '#9CA3AF' }}>{icons[route.name]}</Text>;
+        tabBarIcon: ({ focused, color }) => {
+          const icons: Record<string, { focused: string; outline: string }> = {
+            Home:    { focused: 'home',            outline: 'home-outline' },
+            Cart:    { focused: 'bag',             outline: 'bag-outline' },
+            Orders:  { focused: 'receipt',         outline: 'receipt-outline' },
+            Profile: { focused: 'person',          outline: 'person-outline' },
+          };
+          const icon = icons[route.name];
+          return (
+            <Ionicons
+              name={(focused ? icon.focused : icon.outline) as any}
+              size={22}
+              color={color}
+            />
+          );
         },
         tabBarActiveTintColor: '#E63946',
         tabBarInactiveTintColor: '#9CA3AF',
@@ -96,6 +110,7 @@ function BuyerNavigator() {
       <BuyerStack.Screen name="Checkout" component={CheckoutScreen} />
       <BuyerStack.Screen name="BuyerNotifications" component={BuyerNotificationsScreen} />
       <BuyerStack.Screen name="EditProfile" component={EditProfileScreen} />
+      <BuyerStack.Screen name="Favorites" component={FavoritesScreen} /> 
     </BuyerStack.Navigator>
   );
 }
@@ -108,7 +123,7 @@ function AddProductTabButton() {
         style={({ pressed }) => [navStyles.fab, pressed && { opacity: 0.85, transform: [{ scale: 0.95 }] }]}
         onPress={() => nav.navigate('AddProduct', { productId: undefined })}
       >
-        <Text style={navStyles.fabText}>+</Text>
+        <Ionicons name="add" size={32} color="#FFFFFF" />
       </Pressable>
     </View>
   );
@@ -128,12 +143,22 @@ function SellerTabNavigator() {
       <SellerTab.Screen
         name="Dashboard"
         component={SellerDashboardScreen}
-        options={{ tabBarLabel: 'Home', tabBarIcon: ({ color }) => <Text style={[navStyles.tabIcon, { color }]}>⌂</Text> }}
+        options={{
+          tabBarLabel: 'Home',
+          tabBarIcon: ({ focused, color }) => (
+            <Ionicons name={focused ? 'grid' : 'grid-outline'} size={22} color={color} />
+          ),
+        }}
       />
       <SellerTab.Screen
         name="SellerOrders"
         component={SellerOrdersScreen}
-        options={{ tabBarLabel: 'Orders', tabBarIcon: ({ color }) => <Text style={[navStyles.tabIcon, { color }]}>🚚</Text> }}
+        options={{
+          tabBarLabel: 'Orders',
+          tabBarIcon: ({ focused, color }) => (
+            <Ionicons name={focused ? 'cube' : 'cube-outline'} size={22} color={color} />
+          ),
+        }}
       />
       <SellerTab.Screen
         name={"AddProductTab" as any}
@@ -143,12 +168,22 @@ function SellerTabNavigator() {
       <SellerTab.Screen
         name="Products"
         component={SellerProductsScreen}
-        options={{ tabBarLabel: 'Product', tabBarIcon: ({ color }) => <Text style={[navStyles.tabIcon, { color }]}>🎁</Text> }}
+        options={{
+          tabBarLabel: 'Products',
+          tabBarIcon: ({ focused, color }) => (
+            <Ionicons name={focused ? 'pricetag' : 'pricetag-outline'} size={22} color={color} />
+          ),
+        }}
       />
       <SellerTab.Screen
         name="SellerProfile"
         component={SellerProfileScreen}
-        options={{ tabBarLabel: 'Setting', tabBarIcon: ({ color }) => <Text style={[navStyles.tabIcon, { color }]}>⚙️</Text> }}
+        options={{
+          tabBarLabel: 'Settings',
+          tabBarIcon: ({ focused, color }) => (
+            <Ionicons name={focused ? 'settings' : 'settings-outline'} size={22} color={color} />
+          ),
+        }}
       />
     </SellerTab.Navigator>
   );
@@ -160,7 +195,6 @@ function SellerNavigator() {
       <SellerStack.Screen name="SellerTabs" component={SellerTabNavigator} />
       <SellerStack.Screen name="AddProduct" component={AddProductScreen} />
       <SellerStack.Screen name="SellerNotifications" component={SellerNotificationsScreen} />
-      {/* FIXED: Added the Detail Screen to the Stack Navigator */}
       <SellerStack.Screen name="SellerOrderDetail" component={SellerOrderDetailScreen} />
     </SellerStack.Navigator>
   );
@@ -207,7 +241,13 @@ const navStyles = StyleSheet.create({
     shadowOffset: { width: 0, height: -3 },
   },
   tabLabel: { fontSize: 11, fontWeight: '500', marginTop: 2 },
-  tabIcon: { fontSize: 22 },
-  fab: { width: 58, height: 58, borderRadius: 29, backgroundColor: '#F97316', alignItems: 'center', justifyContent: 'center', top: 0 },
-  fabText: { color: '#FFFFFF', fontSize: 32, lineHeight: 36, fontWeight: '300', marginTop: -2 },
+  fab: {
+    width: 58,
+    height: 58,
+    borderRadius: 29,
+    backgroundColor: '#F97316',
+    alignItems: 'center',
+    justifyContent: 'center',
+    top: 0,
+  },
 });

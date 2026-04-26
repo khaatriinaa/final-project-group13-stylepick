@@ -2,7 +2,8 @@
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import { RouteProp, CompositeNavigationProp } from '@react-navigation/native';
-import { Order } from '../types';
+import { Order, CartItem } from '../types'; // ← add CartItem here
+
 
 // ─── Stack Param Lists ────────────────────────────────────────────────────────
 
@@ -22,9 +23,11 @@ export type BuyerStackParamList = {
   BuyerTabs: undefined;
   ProductDetail: { productId: string };
   BuyerOrderDetail: { order: Order };
-  Checkout: undefined;
+  Checkout: { selectedItems: CartItem[] } | undefined; // ← update this line
   BuyerNotifications: undefined;
   EditProfile: undefined;
+  Favorites: undefined;
+
 };
 
 export type SellerTabParamList = {
