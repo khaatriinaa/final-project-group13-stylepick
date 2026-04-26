@@ -1,5 +1,6 @@
 // src/services/productService.ts
 
+
 import { Storage } from '../storage/storage';
 import { KEYS } from '../storage/keys';
 import { Product, ProductCondition, ShippingMethod } from '../types';
@@ -58,6 +59,71 @@ const toRow = (p: Partial<Product>): Record<string, any> => {
   if (p.isArchived      !== undefined) row.is_archived      = p.isArchived;
   if (p.isFeatured      !== undefined) row.is_featured      = p.isFeatured;
   return row;
+};
+
+// ─── UPLOAD: Local image URI → Supabase Storage → public URL ─────────────────
+
+export const uploadProductImage = async (
+  localUri: string,
+  sellerId: string,
+): Promise<string> => {
+  // If already a remote URL skip upload
+  if (localUri.startsWith('http://') || localUri.startsWith('https://')) {
+    return localUri;
+  }
+
+  try {
+    // ─── Step 1: Build unique file name ──────────────────────────
+    const fileName = `${Date.now()}_${Math.random().toString(36).slice(2)}.jpg`;
+    const filePath = `products/${sellerId}/${fileName}`;
+
+    console.log('Fetching local image URI:', localUri); // ✅ DEBUG
+
+    // ─── Step 2: Fetch local file as ArrayBuffer ──────────────────
+    const response = await fetch(localUri);
+    if (!response.ok) throw new Error(`fetch failed: ${response.status}`);
+    const arrayBuffer = await response.arrayBuffer();
+
+    console.log('ArrayBuffer size:', arrayBuffer.byteLength); // ✅ DEBUG
+    console.log('Uploading to Supabase Storage path:', filePath); // ✅ DEBUG
+
+    // ─── Step 3: Upload ArrayBuffer directly to Supabase ─────────
+    const { error: uploadError } = await supabase.storage
+      .from('product-images')
+      .upload(filePath, arrayBuffer, {
+        contentType: 'image/jpeg',
+        upsert:      false,
+      });
+
+    if (uploadError) {
+      console.warn('Supabase Storage upload error:', JSON.stringify(uploadError)); // ✅ DEBUG
+      throw uploadError;
+    }
+
+    // ─── Step 4: Return public URL ────────────────────────────────
+    const { data } = supabase.storage
+      .from('product-images')
+      .getPublicUrl(filePath);
+
+    console.log('Upload success! Public URL:', data.publicUrl); // ✅ DEBUG
+    return data.publicUrl;
+
+  } catch (err) {
+    console.warn('uploadProductImage FAILED:', JSON.stringify(err)); // ✅ DEBUG
+    return localUri; // fallback — keeps app from crashing
+  }
+};
+
+// ─── UPLOAD: Upload all images and return array of public URLs ────────────────
+
+export const uploadProductImages = async (
+  uris: string[],
+  sellerId: string,
+): Promise<string[]> => {
+  const results = await Promise.all(
+    uris.map((uri) => uploadProductImage(uri, sellerId))
+  );
+  return results;
 };
 
 // ─── READ: All active products (Buyer Home) ───────────────────────────────────
@@ -122,8 +188,19 @@ export const getMyProducts = async (sellerId: string): Promise<Product[]> => {
 export type CreateProductPayload = Omit<Product, 'id' | 'createdAt' | 'updatedAt' | 'isArchived' | 'isFeatured'>;
 
 export const createProduct = async (payload: CreateProductPayload): Promise<Product> => {
+  // ─── Upload images to Supabase Storage before saving ─────────────
+  let uploadedImages = payload.images;
+  try {
+    uploadedImages = await uploadProductImages(payload.images, payload.sellerId);
+    console.log('All images uploaded:', uploadedImages); // ✅ DEBUG
+  } catch (err) {
+    console.warn('Image upload failed, using local URIs:', err);
+  }
+  // ─────────────────────────────────────────────────────────────────
+
   const newProduct: Product = {
     ...payload,
+    images:     uploadedImages, // ← Supabase public URLs
     id:         generateId(),
     isArchived: false,
     isFeatured: false,
@@ -140,6 +217,7 @@ export const createProduct = async (payload: CreateProductPayload): Promise<Prod
       .from('products')
       .insert({ ...toRow(newProduct), id: newProduct.id, created_at: newProduct.createdAt });
     if (error) throw error;
+    console.log('Product saved to Supabase:', newProduct.id); // ✅ DEBUG
   } catch (err) {
     console.warn('Supabase createProduct error (local save succeeded):', err);
   }
@@ -154,7 +232,19 @@ export type UpdateProductPayload = Partial<Omit<Product, 'id' | 'sellerId' | 'cr
 export const updateProduct = async (
   productId: string,
   updates: UpdateProductPayload,
+  sellerId?: string,
 ): Promise<Product> => {
+  // ─── Upload any new local images before updating ──────────────────
+  if (updates.images && sellerId) {
+    try {
+      updates.images = await uploadProductImages(updates.images, sellerId);
+      console.log('Updated images uploaded:', updates.images); // ✅ DEBUG
+    } catch (err) {
+      console.warn('Image upload on update failed, keeping existing images:', err);
+    }
+  }
+  // ─────────────────────────────────────────────────────────────────
+
   const all = await Storage.getList<Product>(KEYS.PRODUCTS);
   let updated: Product | null = null;
 
@@ -208,7 +298,6 @@ export const decrementStock = async (productId: string, qty: number): Promise<vo
     if (error) throw error;
   } catch (err) {
     console.warn('Supabase decrementStock RPC error, trying fallback:', err);
-    // Fallback: fetch-then-update (less safe under concurrency)
     try {
       const { data, error: fetchErr } = await supabase
         .from('products')

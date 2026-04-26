@@ -655,7 +655,9 @@ export default function AddProductScreen({ navigation, route }: AddProductScreen
       };
 
       if (isEditing && productId) {
-        await updateProduct(productId, payload);
+        // ─── Pass sellerId so updateProduct can upload new images ───
+        await updateProduct(productId, payload, user.id);
+        // ────────────────────────────────────────────────────────────
         Alert.alert('✓ Updated', 'Your product has been updated.');
       } else {
         await createProduct({ sellerId: user.id, ...payload });
