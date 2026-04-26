@@ -30,9 +30,10 @@ export type BuyerStackParamList = {
 };
 
 export type SellerTabParamList = {
-  Dashboard: undefined;
-  Products: undefined;
-  SellerOrders: undefined;
+  Dashboard:     undefined;
+  SellerOrders:  undefined;
+  AddProductTab: undefined;
+  Products:      undefined;
   SellerProfile: undefined;
 };
 

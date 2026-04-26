@@ -1,238 +1,300 @@
 // src/screens/seller/Dashboard/SellerDashboardScreen.styles.ts
-import { StyleSheet, Platform } from 'react-native';
+import { StyleSheet } from 'react-native';
 import { COLORS, FONTS, RADIUS, SHADOW } from '../../../theme';
 
 export const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: COLORS.background },
-
-  // ─── Header ──────────────────────────────────────────────────
-  header: {
-    backgroundColor: COLORS.secondary,
-    paddingTop: 52,
-    paddingHorizontal: 20,
-    paddingBottom: 28,
+  container: {
+    flex: 1,
+    backgroundColor: '#F6F7FB',
   },
-  headerRow: {
+
+  // ─── Top Bar ─────────────────────────────────────────────────
+  topBar: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 20,
+    backgroundColor: '#fff',
+    paddingTop: 56,
+    paddingBottom: 16,
+    paddingHorizontal: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F0F0F0',
   },
-  menuIcon: { padding: 4 },
-  menuLine: {
-    width: 22,
-    height: 2,
-    backgroundColor: COLORS.white,
-    marginBottom: 4,
-    borderRadius: 2,
+
+  // Avatar
+  avatarBtn: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    overflow: 'hidden',
+    borderWidth: 2,
+    borderColor: COLORS.primary,
   },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: FONTS.bold,
-    color: COLORS.white,
+  avatarImage: {
+    width: '100%',
+    height: '100%',
   },
-  headerActions: { flexDirection: 'row', gap: 12 },
-  headerIconBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: 'rgba(255,255,255,0.12)',
+  avatarFallback: {
+    width: '100%',
+    height: '100%',
+    backgroundColor: COLORS.primaryLight ?? '#FFE5CC',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  headerIconText: { color: COLORS.white, fontSize: 14 },
-  notifDot: {
+  avatarInitials: {
+    fontSize: 15,
+    fontWeight: FONTS.bold,
+    color: COLORS.primary,
+  },
+
+  // Store name
+  storeName: {
+    fontSize: 17,
+    fontWeight: FONTS.bold,
+    color: COLORS.text,
+    letterSpacing: 0.2,
+  },
+
+  // Bell
+  bellBtn: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    backgroundColor: '#F6F7FB',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#EBEBEB',
+  },
+  bellIcon: {
+    fontSize: 18,
+  },
+  notifBadge: {
     position: 'absolute',
     top: 4,
     right: 4,
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: COLORS.primary,
+    minWidth: 17,
+    height: 17,
+    borderRadius: 9,
+    backgroundColor: '#F0506E',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 3,
+    borderWidth: 1.5,
+    borderColor: '#fff',
+  },
+  notifBadgeText: {
+    color: '#fff',
+    fontSize: 9,
+    fontWeight: FONTS.bold,
+    lineHeight: 13,
   },
 
-  // ─── Stats card ───────────────────────────────────────────────
-  statsCard: {
-    backgroundColor: COLORS.white,
+  // ─── Body ─────────────────────────────────────────────────────
+  body: {
+    paddingHorizontal: 16,
+    paddingTop: 20,
+  },
+
+  // ─── Stats Row ────────────────────────────────────────────────
+  statsRow: {
+    gap: 12,
+    paddingRight: 4,
+    paddingBottom: 4,
+  },
+  statCard: {
+    width: 110,
     borderRadius: RADIUS.lg,
-    marginHorizontal: 16,
-    marginTop: -20,
-    padding: 18,
-    flexDirection: 'row',
-    ...SHADOW.md,
+    padding: 14,
+    ...SHADOW.sm,
   },
-  statItem: { flex: 1, alignItems: 'center' },
-  statDivider: {
-    width: 1,
-    backgroundColor: COLORS.border,
-    marginVertical: 4,
+  statIconWrap: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 10,
   },
-  statValue: {
+  statIcon: {
+    fontSize: 16,
+  },
+  statCardLabel: {
+    fontSize: 11,
+    color: COLORS.textSecondary,
+    fontWeight: FONTS.medium,
+    marginBottom: 3,
+  },
+  statCardValue: {
     fontSize: 22,
     fontWeight: FONTS.extraBold,
     color: COLORS.text,
   },
-  statLabel: {
-    fontSize: 11,
-    color: COLORS.textSecondary,
-    marginTop: 3,
-    fontWeight: FONTS.medium,
-  },
 
-  // ─── Body ─────────────────────────────────────────────────────
-  body: { paddingHorizontal: 16, paddingBottom: 30 },
-
-  // ─── Sales chart ──────────────────────────────────────────────
-  chartCard: {
-    backgroundColor: COLORS.white,
+  // ─── Generic card ─────────────────────────────────────────────
+  card: {
+    backgroundColor: '#fff',
     borderRadius: RADIUS.lg,
     padding: 16,
-    marginTop: 16,
+    marginTop: 4,
     ...SHADOW.sm,
-    overflow: 'visible',
   },
-  chartHeader: {
+
+  // ─── Card header ──────────────────────────────────────────────
+  cardHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 14,
+    marginBottom: 12,
   },
-  chartTitle: {
-    fontSize: 14,
+  cardTitle: {
+    fontSize: 15,
     fontWeight: FONTS.bold,
     color: COLORS.text,
   },
-  chartPeriod: {
+
+  // Period button
+  periodBtn: {
     flexDirection: 'row',
     alignItems: 'center',
+    backgroundColor: COLORS.primary,
+    borderRadius: 20,
+    paddingHorizontal: 14,
+    paddingVertical: 6,
     gap: 4,
-    backgroundColor: COLORS.background,
+  },
+  periodBtnText: {
+    fontSize: 12,
+    color: '#fff',
+    fontWeight: FONTS.semiBold,
+  },
+  periodBtnArrow: {
+    fontSize: 20,
+    color: '#fff',
+  },
+
+  // Filter button (orders)
+  filterBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F6F7FB',
     borderRadius: RADIUS.sm,
     paddingHorizontal: 10,
-    paddingVertical: 5,
+    paddingVertical: 6,
+    gap: 4,
     borderWidth: 1,
     borderColor: COLORS.border,
     minWidth: 110,
   },
-  chartPeriodText: {
+  filterBtnText: {
     fontSize: 12,
-    color: COLORS.textSecondary,
+    color: '#000000',
     fontWeight: FONTS.medium,
     flex: 1,
   },
 
-  // ─── Bar chart ────────────────────────────────────────────────
-  barChart: {
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-    gap: 6,
-    height: 80,
-    marginBottom: 8,
-  },
-  barWrap: { flex: 1, alignItems: 'center', gap: 4 },
-  bar: { width: '100%', borderRadius: RADIUS.sm, minHeight: 4 },
-  barLabel: { fontSize: 9, color: COLORS.textLight },
+  filterBtnArrow: {
+  fontSize: 20,
+  color:'#000000',
+},
 
   // ─── Legend ───────────────────────────────────────────────────
   legendRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingTop: 12,
-    borderTopWidth: 1,
-    borderTopColor: COLORS.border,
+    gap: 16,
+    marginBottom: 10,
   },
-  legendItem: { flex: 1, alignItems: 'center' },
+  legendItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
   legendDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    marginBottom: 4,
+    width: 10,
+    height: 10,
+    borderRadius: 5,
   },
-  legendValue: {
+  legendText: {
+    fontSize: 12,
+    color: COLORS.textSecondary,
+    fontWeight: FONTS.medium,
+  },
+
+  // ─── Chart area ───────────────────────────────────────────────
+  chartArea: {
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: 16,
+  },
+  yAxis: {
+    justifyContent: 'space-between',
+    paddingBottom: 20,
+    width: 28,
+  },
+  yLabel: {
+    fontSize: 9,
+    color: COLORS.textSecondary,
+    textAlign: 'right',
+  },
+  xAxis: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 6,
+  },
+  xLabel: {
+    fontSize: 10,
+    color: COLORS.textSecondary,
+    textAlign: 'center',
+    flex: 1,
+  },
+  xLabelActive: {
+    color: COLORS.primary,
+    fontWeight: FONTS.bold,
+  },
+
+  // Chart summary row
+  chartSummary: {
+    flexDirection: 'row',
+    borderTopWidth: 1,
+    borderTopColor: '#F0F0F0',
+    paddingTop: 14,
+    marginTop: 4,
+  },
+  chartSummaryItem: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  chartSummaryBorder: {
+    borderLeftWidth: 1,
+    borderRightWidth: 1,
+    borderColor: '#F0F0F0',
+  },
+  chartSummaryValue: {
     fontSize: 16,
     fontWeight: FONTS.bold,
     color: COLORS.text,
   },
-  legendLabel: {
+  chartSummaryLabel: {
     fontSize: 11,
     color: COLORS.textSecondary,
-    marginTop: 1,
+    marginTop: 2,
   },
 
-  // ─── Quick actions ────────────────────────────────────────────
-  quickRow: { flexDirection: 'row', gap: 10, marginTop: 16 },
-  quickBtn: {
-    flex: 1,
-    backgroundColor: COLORS.white,
-    borderRadius: RADIUS.lg,
-    paddingVertical: 14,
-    alignItems: 'center',
-    ...SHADOW.sm,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-  },
-  quickBtnPressed: { backgroundColor: COLORS.background },
-  quickBtnIcon: {
-    fontSize: 18,
-    marginBottom: 6,
-    color: COLORS.secondary,
-  },
-  quickBtnLabel: {
-    fontSize: 12,
-    fontWeight: FONTS.semiBold,
-    color: COLORS.text,
-  },
-
-  // ─── Section header ───────────────────────────────────────────
-  sectionRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginTop: 22,
-    marginBottom: 12,
-    overflow: 'visible',
-  },
-  sectionTitle: {
-    fontSize: 14,
-    fontWeight: FONTS.bold,
-    color: COLORS.text,
-  },
-  sortWrap: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    backgroundColor: COLORS.background,
-    borderRadius: RADIUS.sm,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    minWidth: 120,
-  },
-  sortText: {
-    fontSize: 12,
-    color: COLORS.textSecondary,
-    flex: 1,
-  },
-
-  // ─── Shared dropdown styles ───────────────────────────────────
+  // ─── Dropdown ─────────────────────────────────────────────────
   dropdown: {
     position: 'absolute',
-    top: 36,
+    top: 38,
     left: 0,
-    backgroundColor: COLORS.white,
+    backgroundColor: '#fff',
     borderRadius: RADIUS.md,
     borderWidth: 1,
     borderColor: COLORS.border,
-    minWidth: 150,
-    ...SHADOW.md,
+    minWidth: 160,
     zIndex: 999,
-    // iOS shadow
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.12,
+    shadowOpacity: 0.1,
     shadowRadius: 8,
-    // Android
     elevation: 8,
   },
   dropdownRight: {
@@ -244,12 +306,12 @@ export const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 14,
-    paddingVertical: 10,
+    paddingVertical: 11,
     borderBottomWidth: 1,
-    borderBottomColor: COLORS.border,
+    borderBottomColor: '#F5F5F5',
   },
   dropdownItemActive: {
-    backgroundColor: COLORS.primaryLight,
+    backgroundColor: COLORS.primaryLight ?? '#FFF3E8',
   },
   dropdownItemText: {
     fontSize: 13,
@@ -261,37 +323,185 @@ export const styles = StyleSheet.create({
     fontWeight: FONTS.semiBold,
   },
 
+  // ─── Section header ───────────────────────────────────────────
+  sectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 24,
+    marginBottom: 12,
+    overflow: 'visible',
+  },
+  sectionTitle: {
+    fontSize: 15,
+    fontWeight: FONTS.bold,
+    color: COLORS.text,
+  },
+  seeAll: {
+    fontSize: 13,
+    color: COLORS.primary,
+    fontWeight: FONTS.semiBold,
+  },
+
+  // ─── Product cards ────────────────────────────────────────────
+  productScroll: {
+    gap: 12,
+    paddingRight: 4,
+    paddingBottom: 4,
+  },
+  productCard: {
+    width: 120,
+    backgroundColor: '#fff',
+    borderRadius: RADIUS.lg,
+    padding: 10,
+    ...SHADOW.sm,
+  },
+  productImageWrap: {
+    width: '100%',
+    height: 100,
+    borderRadius: RADIUS.md,
+    overflow: 'hidden',
+    backgroundColor: '#F6F7FB',
+    marginBottom: 8,
+    position: 'relative',
+  },
+  productImage: {
+    width: '100%',
+    height: '100%',
+  },
+  productImagePlaceholder: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  productRankBadge: {
+    position: 'absolute',
+    top: 6,
+    left: 6,
+    backgroundColor: 'rgba(0,0,0,0.55)',
+    borderRadius: 6,
+    paddingHorizontal: 5,
+    paddingVertical: 2,
+  },
+  productRankText: {
+    fontSize: 9,
+    color: '#fff',
+    fontWeight: FONTS.bold,
+  },
+  productName: {
+    fontSize: 12,
+    fontWeight: FONTS.semiBold,
+    color: COLORS.text,
+    marginBottom: 2,
+  },
+  productPrice: {
+    fontSize: 13,
+    fontWeight: FONTS.bold,
+    color: COLORS.primary,
+  },
+  productSold: {
+    fontSize: 10,
+    color: COLORS.textSecondary,
+    marginTop: 1,
+  },
+
+  // ─── Buyer rows ───────────────────────────────────────────────
+  buyerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingVertical: 11,
+  },
+  buyerRowBorder: {
+    borderBottomWidth: 1,
+    borderBottomColor: '#F5F5F5',
+  },
+  buyerRank: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: '#F6F7FB',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  buyerRankGold: {
+    backgroundColor: '#FFF3E8',
+  },
+  buyerRankText: {
+    fontSize: 12,
+    fontWeight: FONTS.bold,
+    color: COLORS.textSecondary,
+  },
+  buyerAvatar: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: COLORS.primaryLight ?? '#FFE5CC',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  buyerAvatarText: {
+    fontSize: 13,
+    fontWeight: FONTS.bold,
+    color: COLORS.primary,
+  },
+  buyerInfo: {
+    flex: 1,
+  },
+  buyerName: {
+    fontSize: 13,
+    fontWeight: FONTS.semiBold,
+    color: COLORS.text,
+  },
+  buyerOrders: {
+    fontSize: 11,
+    color: COLORS.textSecondary,
+    marginTop: 1,
+  },
+  buyerSpend: {
+    fontSize: 14,
+    fontWeight: FONTS.bold,
+    color: COLORS.primary,
+  },
+
   // ─── Order rows ───────────────────────────────────────────────
   orderRow: {
-    backgroundColor: COLORS.white,
-    borderRadius: RADIUS.lg,
-    padding: 14,
-    marginBottom: 8,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
-    ...SHADOW.sm,
+    paddingVertical: 12,
   },
-  orderRowPressed: { opacity: 0.9 },
-  orderImageWrap: {
-    width: 44,
-    height: 44,
+  orderRowBorder: {
+    borderBottomWidth: 1,
+    borderBottomColor: '#F5F5F5',
+  },
+  orderThumb: {
+    width: 48,
+    height: 48,
     borderRadius: RADIUS.md,
-    backgroundColor: COLORS.background,
+    backgroundColor: '#F6F7FB',
     overflow: 'hidden',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  orderImage: { width: '100%', height: '100%' },
-  orderImagePlaceholder: { fontSize: 20, color: COLORS.borderDark },
-  orderInfo: { flex: 1 },
-  orderItemName: {
+  orderThumbImage: {
+    width: '100%',
+    height: '100%',
+  },
+  orderInfo: {
+    flex: 1,
+  },
+  orderName: {
     fontSize: 13,
     fontWeight: FONTS.semiBold,
     color: COLORS.text,
     marginBottom: 2,
   },
-  orderMeta: { fontSize: 11, color: COLORS.textSecondary, marginBottom: 4 },
+  orderMeta: {
+    fontSize: 11,
+    color: COLORS.textSecondary,
+    marginBottom: 4,
+  },
   orderAmount: {
     fontSize: 14,
     fontWeight: FONTS.bold,
@@ -303,17 +513,16 @@ export const styles = StyleSheet.create({
     alignSelf: 'flex-start',
     paddingHorizontal: 8,
     paddingVertical: 2,
-    borderRadius: RADIUS.full,
-    marginTop: 2,
+    borderRadius: 20,
   },
   statusBadgeText: {
     fontSize: 10,
     fontWeight: FONTS.semiBold,
   },
 
-  // ─── Empty state ──────────────────────────────────────────────
+  // ─── Empty states ─────────────────────────────────────────────
   emptyCard: {
-    backgroundColor: COLORS.white,
+    backgroundColor: '#fff',
     borderRadius: RADIUS.lg,
     padding: 32,
     alignItems: 'center',
@@ -330,5 +539,16 @@ export const styles = StyleSheet.create({
     color: COLORS.textSecondary,
     marginTop: 4,
     textAlign: 'center',
+  },
+  emptyInline: {
+    backgroundColor: '#fff',
+    borderRadius: RADIUS.lg,
+    padding: 20,
+    alignItems: 'center',
+    ...SHADOW.sm,
+  },
+  emptyInlineText: {
+    fontSize: 13,
+    color: COLORS.textSecondary,
   },
 });

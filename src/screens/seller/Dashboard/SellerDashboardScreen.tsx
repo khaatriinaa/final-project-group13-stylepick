@@ -1,5 +1,5 @@
 // src/screens/seller/Dashboard/SellerDashboardScreen.tsx
-import React, { useState, useCallback, useRef } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -7,11 +7,7 @@ import {
   Pressable,
   RefreshControl,
   Image,
-  Modal,
-  TouchableOpacity,
   TouchableWithoutFeedback,
-  Animated,
-  Dimensions,
 } from 'react-native';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -25,10 +21,10 @@ import { styles } from './SellerDashboardScreen.styles';
 // ─── Constants ────────────────────────────────────────────────
 const WEEK_DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
-type SalesPeriod = 'Last Week' | 'Last Month' | 'Last 3 Months';
+type SalesPeriod = 'This Week' | 'This Month' | 'Last 3 Months';
 type OrderFilter = 'All' | 'Pending' | 'Processing' | 'Delivered' | 'Cancelled';
 
-const SALES_PERIODS: SalesPeriod[] = ['Last Week', 'Last Month', 'Last 3 Months'];
+const SALES_PERIODS: SalesPeriod[] = ['This Week', 'This Month', 'Last 3 Months'];
 const ORDER_FILTERS: OrderFilter[] = ['All', 'Pending', 'Processing', 'Delivered', 'Cancelled'];
 
 const STATUS_MAP: Record<OrderFilter, OrderStatus | null> = {
@@ -42,39 +38,38 @@ const STATUS_MAP: Record<OrderFilter, OrderStatus | null> = {
 // ─── Helpers ──────────────────────────────────────────────────
 const getPeriodRange = (period: SalesPeriod): Date => {
   const now = new Date();
-  if (period === 'Last Week')     { const d = new Date(now); d.setDate(now.getDate() - 7);   return d; }
-  if (period === 'Last Month')    { const d = new Date(now); d.setMonth(now.getMonth() - 1); return d; }
-  /* Last 3 Months */               const d = new Date(now); d.setMonth(now.getMonth() - 3); return d;
+  if (period === 'This Week')  { const d = new Date(now); d.setDate(now.getDate() - 7);   return d; }
+  if (period === 'This Month') { const d = new Date(now); d.setMonth(now.getMonth() - 1); return d; }
+  /* Last 3 Months */            const d = new Date(now); d.setMonth(now.getMonth() - 3); return d;
 };
 
 const getChartConfig = (period: SalesPeriod, orders: Order[]) => {
   const now = new Date();
 
-  if (period === 'Last Week') {
-    const labels = WEEK_DAYS.map((d) => d.slice(0, 2));
-    const counts = WEEK_DAYS.map((_, i) =>
+  if (period === 'This Week') {
+    const labels  = WEEK_DAYS.map((d) => d.slice(0, 2));
+    const counts  = WEEK_DAYS.map((_, i) =>
       orders.filter((o) => {
         const d = new Date(o.createdAt);
-        const daysAgo = (now.getTime() - d.getTime()) / 86400000;
-        return daysAgo <= 7 && d.getDay() === (i + 1) % 7;
+        return (now.getTime() - d.getTime()) / 86400000 <= 7 && d.getDay() === (i + 1) % 7;
       }).length
     );
     const revenue = WEEK_DAYS.map((_, i) =>
       orders
         .filter((o) => {
           const d = new Date(o.createdAt);
-          const daysAgo = (now.getTime() - d.getTime()) / 86400000;
-          return daysAgo <= 7 && d.getDay() === (i + 1) % 7 && o.status === 'delivered';
+          return (now.getTime() - d.getTime()) / 86400000 <= 7
+            && d.getDay() === (i + 1) % 7
+            && o.status === 'delivered';
         })
         .reduce((s, o) => s + o.totalAmount, 0)
     );
-    const todayIdx = (now.getDay() + 6) % 7;
-    return { labels, counts, revenue, highlightIdx: todayIdx };
+    return { labels, counts, revenue, highlightIdx: (now.getDay() + 6) % 7 };
   }
 
-  if (period === 'Last Month') {
-    const labels = ['Wk 1', 'Wk 2', 'Wk 3', 'Wk 4'];
-    const counts = [0, 1, 2, 3].map((wk) =>
+  if (period === 'This Month') {
+    const labels  = ['Wk 1', 'Wk 2', 'Wk 3', 'Wk 4'];
+    const counts  = [0, 1, 2, 3].map((wk) =>
       orders.filter((o) => {
         const d = new Date(o.createdAt);
         const daysAgo = Math.floor((now.getTime() - d.getTime()) / 86400000);
@@ -99,24 +94,70 @@ const getChartConfig = (period: SalesPeriod, orders: Order[]) => {
     const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
     months.push(d.toLocaleString('default', { month: 'short' }));
   }
-  const counts = [2, 1, 0].map((mOffset) =>
-    orders.filter((o) => {
-      const d = new Date(o.createdAt);
-      return d.getMonth() === (now.getMonth() - mOffset + 12) % 12;
-    }).length
+  const counts  = [2, 1, 0].map((mo) =>
+    orders.filter((o) => new Date(o.createdAt).getMonth() === (now.getMonth() - mo + 12) % 12).length
   );
-  const revenue = [2, 1, 0].map((mOffset) =>
+  const revenue = [2, 1, 0].map((mo) =>
     orders
-      .filter((o) => {
-        const d = new Date(o.createdAt);
-        return (
-          d.getMonth() === (now.getMonth() - mOffset + 12) % 12 &&
-          o.status === 'delivered'
-        );
-      })
+      .filter((o) => new Date(o.createdAt).getMonth() === (now.getMonth() - mo + 12) % 12 && o.status === 'delivered')
       .reduce((s, o) => s + o.totalAmount, 0)
   );
   return { labels: months, counts, revenue, highlightIdx: 2 };
+};
+
+// ─── Lightweight line chart ────────────────────────────────────
+const LineChart = ({ data, color, height = 90 }: { data: number[]; color: string; height?: number }) => {
+  const CHART_WIDTH = 260;
+  const max = Math.max(...data, 1);
+  const pts = data.map((v, i) => ({
+    x: data.length === 1 ? 0 : (i / (data.length - 1)) * CHART_WIDTH,
+    y: height - (v / max) * (height * 0.85),
+  }));
+
+  return (
+    <View style={{ height, width: CHART_WIDTH, position: 'relative' }}>
+      {pts.slice(0, -1).map((pt, i) => {
+        const next  = pts[i + 1];
+        const dx    = next.x - pt.x;
+        const dy    = next.y - pt.y;
+        const len   = Math.sqrt(dx * dx + dy * dy);
+        const angle = Math.atan2(dy, dx) * (180 / Math.PI);
+        return (
+          <View
+            key={i}
+            style={{
+              position:        'absolute',
+              left:            pt.x,
+              top:             pt.y - 1.5,
+              width:           len + 1,
+              height:          3,
+              backgroundColor: color,
+              borderRadius:    2,
+              transform:       [{ rotate: `${angle}deg` }],
+              // @ts-ignore
+              transformOrigin: '0 50%',
+            }}
+          />
+        );
+      })}
+      {pts.map((pt, i) => (
+        <View
+          key={`d${i}`}
+          style={{
+            position:        'absolute',
+            left:            pt.x - 4,
+            top:             pt.y - 4,
+            width:           8,
+            height:          8,
+            borderRadius:    4,
+            backgroundColor: color,
+            borderWidth:     2,
+            borderColor:     '#fff',
+          }}
+        />
+      ))}
+    </View>
+  );
 };
 
 // ─── Component ────────────────────────────────────────────────
@@ -128,18 +169,11 @@ export default function SellerDashboardScreen({ navigation }: SellerDashboardScr
   const [stats, setStats]           = useState({ totalOrders: 0, totalRevenue: 0, pendingOrders: 0 });
   const [refreshing, setRefreshing] = useState(false);
 
-  // Dropdown states
-  const [salesPeriod, setSalesPeriod]             = useState<SalesPeriod>('Last Week');
+  const [salesPeriod, setSalesPeriod]             = useState<SalesPeriod>('This Week');
   const [orderFilter, setOrderFilter]             = useState<OrderFilter>('All');
   const [salesDropdownOpen, setSalesDropdownOpen] = useState(false);
   const [orderDropdownOpen, setOrderDropdownOpen] = useState(false);
 
-  // ── No drawer navigator in this app — burger is decorative only ──
-  const openDrawer = () => {
-    // No drawer navigator; button intentionally does nothing.
-  };
-
-  // ── Fetch ──────────────────────────────────────────────────
   const fetchData = useCallback(async () => {
     if (!user?.id) return;
     const [allOrders, s] = await Promise.all([
@@ -158,146 +192,136 @@ export default function SellerDashboardScreen({ navigation }: SellerDashboardScr
     setRefreshing(false);
   }, [fetchData]);
 
-  // ── Derived data ───────────────────────────────────────────
   const periodFrom      = getPeriodRange(salesPeriod);
   const periodOrders    = orders.filter((o) => new Date(o.createdAt) >= periodFrom);
   const chartConfig     = getChartConfig(salesPeriod, orders);
-  const maxCount        = Math.max(...chartConfig.counts, 1);
-  const barHeights      = chartConfig.counts.map((c) => Math.max(c / maxCount, 0.08));
-
   const periodIncome    = chartConfig.revenue.reduce((s, v) => s + v, 0);
   const periodDelivered = periodOrders.filter((o) => o.status === 'delivered').length;
-  const todayOrders     = orders.filter((o) => {
-    const today = new Date();
-    return new Date(o.createdAt).toDateString() === today.toDateString();
-  }).length;
+  const processingCount = orders.filter((o) => o.status === 'preparing').length;
 
-  // Filtered orders list
   const filteredOrders = (() => {
     const status = STATUS_MAP[orderFilter];
-    const base   = status ? orders.filter((o) => o.status === status) : orders;
-    return base.slice(0, 6);
+    return (status ? orders.filter((o) => o.status === status) : orders).slice(0, 5);
   })();
 
-  // ── Close both dropdowns when tapping outside ──────────────
-  const closeDropdowns = () => {
-    setSalesDropdownOpen(false);
-    setOrderDropdownOpen(false);
-  };
+  const productFreq: Record<string, { name: string; image?: string; count: number; price: number }> = {};
+  orders.forEach((o) =>
+    o.items?.forEach((item) => {
+      const id = item.product?.id;
+      if (!id) return;
+      if (!productFreq[id])
+        productFreq[id] = { name: item.product.name, image: item.product.images?.[0], count: 0, price: item.product.price };
+      productFreq[id].count += item.quantity;
+    })
+  );
+  const topProducts = Object.values(productFreq).sort((a, b) => b.count - a.count).slice(0, 10);
+
+  const buyerSpend: Record<string, { id: string; spend: number; orderCount: number }> = {};
+  orders.forEach((o) => {
+    if (!buyerSpend[o.buyerId]) buyerSpend[o.buyerId] = { id: o.buyerId, spend: 0, orderCount: 0 };
+    buyerSpend[o.buyerId].spend      += o.totalAmount;
+    buyerSpend[o.buyerId].orderCount += 1;
+  });
+  const topBuyers = Object.values(buyerSpend).sort((a, b) => b.spend - a.spend).slice(0, 5);
+
+  const closeDropdowns = () => { setSalesDropdownOpen(false); setOrderDropdownOpen(false); };
+
+  const avatarUri      = user?.profilePicture;
+  const avatarInitials = user?.name
+    ? user.name.split(' ').map((n: string) => n[0]).slice(0, 2).join('').toUpperCase()
+    : '?';
 
   return (
     <TouchableWithoutFeedback onPress={closeDropdowns}>
       <ScrollView
         style={styles.container}
         keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
         refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={handleRefresh}
-            colors={[COLORS.primary]}
-            tintColor={COLORS.primary}
-          />
+          <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} colors={[COLORS.primary]} tintColor={COLORS.primary} />
         }
       >
-        {/* ─── Header ─────────────────────────────────────────── */}
-        <View style={styles.header}>
-          <View style={styles.headerRow}>
-            {/* Burger → opens drawer */}
-            <Pressable
-              style={({ pressed }) => [styles.menuIcon, pressed && { opacity: 0.7 }]}
-              onPress={openDrawer}
-              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-            >
-              <View style={styles.menuLine} />
-              <View style={styles.menuLine} />
-              <View style={[styles.menuLine, { width: 14 }]} />
-            </Pressable>
+        {/* ─── Top Bar ─────────────────────────────────────────── */}
+        <View style={styles.topBar}>
+          <Pressable
+            style={({ pressed }) => [styles.avatarBtn, pressed && { opacity: 0.75 }]}
+            onPress={() => stackNav.navigate('SellerProfile' as any)}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          >
+            {avatarUri ? (
+              <Image source={{ uri: avatarUri }} style={styles.avatarImage} />
+            ) : (
+              <View style={styles.avatarFallback}>
+                <Text style={styles.avatarInitials}>{avatarInitials}</Text>
+              </View>
+            )}
+          </Pressable>
 
-            <Text style={styles.headerTitle}>Dashboard</Text>
+          <Text style={styles.storeName}>{user?.name ?? 'My Store'}</Text>
 
-            <View style={styles.headerActions}>
-              <Pressable
-                style={styles.headerIconBtn}
-                onPress={() => stackNav.navigate('SellerNotifications' as any)}
-              >
-                <Text style={styles.headerIconText}>⚑</Text>
-                {stats.pendingOrders > 0 && <View style={styles.notifDot} />}
-              </Pressable>
-              <Pressable style={styles.headerIconBtn} onPress={handleRefresh}>
-                <Text style={styles.headerIconText}>↻</Text>
-              </Pressable>
-            </View>
-          </View>
-        </View>
-
-        {/* ─── Stats card ─────────────────────────────────────── */}
-        <View style={styles.statsCard}>
-          <View style={styles.statItem}>
-            <Text style={styles.statValue}>{stats.totalOrders.toLocaleString()}</Text>
-            <Text style={styles.statLabel}>orders</Text>
-          </View>
-          <View style={styles.statDivider} />
-          <View style={styles.statItem}>
-            <Text style={styles.statValue}>
-              ₱{stats.totalRevenue >= 1000
-                ? `${(stats.totalRevenue / 1000).toFixed(1)}k`
-                : stats.totalRevenue.toLocaleString()}
-            </Text>
-            <Text style={styles.statLabel}>gross</Text>
-          </View>
-          <View style={styles.statDivider} />
-          <View style={styles.statItem}>
-            <Text style={styles.statValue}>{stats.pendingOrders}</Text>
-            <Text style={styles.statLabel}>pending</Text>
-          </View>
+          <Pressable
+            style={({ pressed }) => [styles.bellBtn, pressed && { opacity: 0.7 }]}
+            onPress={() => stackNav.navigate('SellerNotifications' as any)}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          >
+            <Text style={styles.bellIcon}>🔔</Text>
+            {stats.pendingOrders > 0 && (
+              <View style={styles.notifBadge}>
+                <Text style={styles.notifBadgeText}>{stats.pendingOrders > 9 ? '9+' : stats.pendingOrders}</Text>
+              </View>
+            )}
+          </Pressable>
         </View>
 
         <View style={styles.body}>
-          {/* ─── Sales Statistics chart ──────────────────────── */}
-          <View style={[styles.chartCard, { zIndex: salesDropdownOpen ? 20 : 1 }]}>
-            <View style={styles.chartHeader}>
-              <Text style={styles.chartTitle}>Sales Statistics</Text>
 
-              {/* Sales period dropdown */}
+          {/* ─── Stats Cards ──────────────────────────────────────── */}
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.statsRow}>
+            {[
+              { label: 'Orders',     value: String(stats.totalOrders),  icon: '🛒', bg: '#FFF3E8', accent: '#FF8C00' },
+              { label: 'Pending',    value: String(stats.pendingOrders), icon: '⏳', bg: '#EAF0FF', accent: '#5B8DEF' },
+              { label: 'Processing', value: String(processingCount),     icon: '⚙️', bg: '#FFE8EC', accent: '#F0506E' },
+              {
+                label: 'Revenue',
+                value: stats.totalRevenue >= 1000
+                  ? `₱${(stats.totalRevenue / 1000).toFixed(1)}k`
+                  : `₱${stats.totalRevenue}`,
+                icon: '💰', bg: '#E8FAF0', accent: '#28C76F',
+              },
+            ].map((s) => (
+              <View key={s.label} style={[styles.statCard, { backgroundColor: s.bg }]}>
+                <View style={[styles.statIconWrap, { backgroundColor: s.accent }]}>
+                  <Text style={styles.statIcon}>{s.icon}</Text>
+                </View>
+                <Text style={styles.statCardLabel}>{s.label}</Text>
+                <Text style={styles.statCardValue}>{s.value}</Text>
+              </View>
+            ))}
+          </ScrollView>
+
+          {/* ─── Sales Statistics ─────────────────────────────────── */}
+          <View style={[styles.card, { zIndex: salesDropdownOpen ? 20 : 1 }]}>
+            <View style={styles.cardHeader}>
+              <Text style={styles.cardTitle}>Sales Statistics</Text>
               <View style={{ position: 'relative' }}>
                 <Pressable
-                  style={styles.chartPeriod}
-                  onPress={() => {
-                    setOrderDropdownOpen(false);
-                    setSalesDropdownOpen((v) => !v);
-                  }}
+                  style={styles.periodBtn}
+                  onPress={() => { setOrderDropdownOpen(false); setSalesDropdownOpen((v) => !v); }}
                 >
-                  <Text style={styles.chartPeriodText}>{salesPeriod}</Text>
-                  <Text style={{ fontSize: 10, color: COLORS.textSecondary }}>
-                    {salesDropdownOpen ? '  ▴' : '  ▾'}
-                  </Text>
+                  <Text style={styles.periodBtnText}>{salesPeriod}</Text>
+                  {/* ── arrow fontSize 20 ── */}
+                  <Text style={styles.periodBtnArrow}>{salesDropdownOpen ? '▴' : '▾'}</Text>
                 </Pressable>
-
                 {salesDropdownOpen && (
                   <View style={styles.dropdown}>
                     {SALES_PERIODS.map((p) => (
                       <Pressable
                         key={p}
-                        style={[
-                          styles.dropdownItem,
-                          salesPeriod === p && styles.dropdownItemActive,
-                        ]}
-                        onPress={() => {
-                          setSalesPeriod(p);
-                          setSalesDropdownOpen(false);
-                        }}
+                        style={[styles.dropdownItem, salesPeriod === p && styles.dropdownItemActive]}
+                        onPress={() => { setSalesPeriod(p); setSalesDropdownOpen(false); }}
                       >
-                        <Text
-                          style={[
-                            styles.dropdownItemText,
-                            salesPeriod === p && styles.dropdownItemTextActive,
-                          ]}
-                        >
-                          {p}
-                        </Text>
-                        {salesPeriod === p && (
-                          <Text style={{ fontSize: 12, color: COLORS.primary }}>✓</Text>
-                        )}
+                        <Text style={[styles.dropdownItemText, salesPeriod === p && styles.dropdownItemTextActive]}>{p}</Text>
+                        {salesPeriod === p && <Text style={{ fontSize: 12, color: COLORS.primary }}>✓</Text>}
                       </Pressable>
                     ))}
                   </View>
@@ -305,120 +329,153 @@ export default function SellerDashboardScreen({ navigation }: SellerDashboardScr
               </View>
             </View>
 
-            {/* Bar chart */}
-            <View style={styles.barChart}>
-              {barHeights.map((h, i) => {
-                const isHighlight = i === chartConfig.highlightIdx;
-                return (
-                  <View key={i} style={styles.barWrap}>
-                    <View
-                      style={[
-                        styles.bar,
-                        {
-                          height: Math.max(Math.round(h * 68), 4),
-                          backgroundColor: isHighlight ? COLORS.secondary : COLORS.background,
-                          borderWidth: isHighlight ? 0 : 1,
-                          borderColor: COLORS.border,
-                        },
-                      ]}
-                    />
-                    <Text
-                      style={[
-                        styles.barLabel,
-                        isHighlight && { color: COLORS.secondary, fontWeight: FONTS.bold },
-                      ]}
-                    >
-                      {chartConfig.labels[i]}
-                    </Text>
-                  </View>
-                );
-              })}
-            </View>
-
             {/* Legend */}
             <View style={styles.legendRow}>
               <View style={styles.legendItem}>
-                <View style={[styles.legendDot, { backgroundColor: COLORS.success }]} />
-                <Text style={styles.legendValue}>
+                <View style={[styles.legendDot, { backgroundColor: '#FF8C00' }]} />
+                <Text style={styles.legendText}>Amount</Text>
+              </View>
+              <View style={styles.legendItem}>
+                <View style={[styles.legendDot, { backgroundColor: '#5B8DEF' }]} />
+                <Text style={styles.legendText}>Orders</Text>
+              </View>
+            </View>
+
+            {/* Chart */}
+            <View style={styles.chartArea}>
+              <View style={styles.yAxis}>
+                {['10k', '5k', '3k', '1k', '0'].map((l) => (
+                  <Text key={l} style={styles.yLabel}>{l}</Text>
+                ))}
+              </View>
+              <View style={{ flex: 1, overflow: 'hidden' }}>
+                <LineChart data={chartConfig.revenue} color="#FF8C00" height={100} />
+                <View style={{ marginTop: -100 }}>
+                  <LineChart data={chartConfig.counts} color="#5B8DEF" height={100} />
+                </View>
+                <View style={styles.xAxis}>
+                  {chartConfig.labels.map((l, i) => (
+                    <Text
+                      key={i}
+                      style={[styles.xLabel, i === chartConfig.highlightIdx && styles.xLabelActive]}
+                    >
+                      {l}
+                    </Text>
+                  ))}
+                </View>
+              </View>
+            </View>
+
+            {/* Summary */}
+            <View style={styles.chartSummary}>
+              <View style={styles.chartSummaryItem}>
+                <Text style={styles.chartSummaryValue}>
                   ₱{periodIncome >= 1000 ? `${(periodIncome / 1000).toFixed(1)}k` : periodIncome}
                 </Text>
-                <Text style={styles.legendLabel}>Income</Text>
+                <Text style={styles.chartSummaryLabel}>Income</Text>
               </View>
-              <View style={styles.legendItem}>
-                <View style={[styles.legendDot, { backgroundColor: COLORS.primary }]} />
-                <Text style={styles.legendValue}>{periodDelivered}</Text>
-                <Text style={styles.legendLabel}>Delivered</Text>
+              <View style={[styles.chartSummaryItem, styles.chartSummaryBorder]}>
+                <Text style={styles.chartSummaryValue}>{periodDelivered}</Text>
+                <Text style={styles.chartSummaryLabel}>Delivered</Text>
               </View>
-              <View style={styles.legendItem}>
-                <View style={[styles.legendDot, { backgroundColor: COLORS.warning }]} />
-                <Text style={styles.legendValue}>{todayOrders}</Text>
-                <Text style={styles.legendLabel}>Today</Text>
+              <View style={styles.chartSummaryItem}>
+                <Text style={styles.chartSummaryValue}>{periodOrders.length}</Text>
+                <Text style={styles.chartSummaryLabel}>Total Orders</Text>
               </View>
             </View>
           </View>
 
-          {/* ─── Quick actions ───────────────────────────────── */}
-          <View style={styles.quickRow}>
-            {[
-              { label: 'Add Product', icon: '+', onPress: () => stackNav.navigate('AddProduct', {}) },
-              { label: 'Orders',      icon: '≡', onPress: () => (navigation as any).navigate('SellerOrders') },
-              { label: 'Products',    icon: '◉', onPress: () => (navigation as any).navigate('Products') },
-            ].map((a) => (
-              <Pressable
-                key={a.label}
-                style={({ pressed }) => [styles.quickBtn, pressed && styles.quickBtnPressed]}
-                onPress={a.onPress}
-              >
-                <Text style={styles.quickBtnIcon}>{a.icon}</Text>
-                <Text style={styles.quickBtnLabel}>{a.label}</Text>
-              </Pressable>
-            ))}
+          {/* ─── Top 10 Trending Products ─────────────────────────── */}
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Top 10 Trending Products</Text>
+            <Pressable onPress={() => (navigation as any).navigate('Products')}>
+              <Text style={styles.seeAll}>See all</Text>
+            </Pressable>
           </View>
 
-          {/* ─── Orders section header ───────────────────────── */}
-          <View style={[styles.sectionRow, { zIndex: orderDropdownOpen ? 20 : 1 }]}>
-            <Text style={styles.sectionTitle}>All Orders</Text>
+          {topProducts.length === 0 ? (
+            <View style={styles.emptyInline}>
+              <Text style={styles.emptyInlineText}>No product data yet</Text>
+            </View>
+          ) : (
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.productScroll}>
+              {topProducts.map((p, i) => (
+                <View key={i} style={styles.productCard}>
+                  <View style={styles.productImageWrap}>
+                    {p.image ? (
+                      <Image source={{ uri: p.image }} style={styles.productImage} resizeMode="cover" />
+                    ) : (
+                      <View style={styles.productImagePlaceholder}>
+                        <Text style={{ fontSize: 28 }}>📦</Text>
+                      </View>
+                    )}
+                    <View style={styles.productRankBadge}>
+                      <Text style={styles.productRankText}>#{i + 1}</Text>
+                    </View>
+                  </View>
+                  <Text style={styles.productName} numberOfLines={1}>{p.name}</Text>
+                  <Text style={styles.productPrice}>₱{p.price.toLocaleString()}</Text>
+                  <Text style={styles.productSold}>{p.count} sold</Text>
+                </View>
+              ))}
+            </ScrollView>
+          )}
 
-            {/* Order filter dropdown */}
+          {/* ─── Top 5 Spending Customers ─────────────────────────── */}
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Top 5 Spending Customers</Text>
+          </View>
+
+          {topBuyers.length === 0 ? (
+            <View style={styles.emptyCard}>
+              <Text style={{ fontSize: 32 }}>👥</Text>
+              <Text style={styles.emptyTitle}>No customer data yet</Text>
+              <Text style={styles.emptyText}>Customer spend will appear here</Text>
+            </View>
+          ) : (
+            <View style={styles.card}>
+              {topBuyers.map((b, i) => (
+                <View key={b.id} style={[styles.buyerRow, i < topBuyers.length - 1 && styles.buyerRowBorder]}>
+                  <View style={[styles.buyerRank, i === 0 && styles.buyerRankGold]}>
+                    <Text style={[styles.buyerRankText, i === 0 && { color: '#FF8C00' }]}>{i + 1}</Text>
+                  </View>
+                  <View style={styles.buyerAvatar}>
+                    <Text style={styles.buyerAvatarText}>{b.id.slice(0, 2).toUpperCase()}</Text>
+                  </View>
+                  <View style={styles.buyerInfo}>
+                    <Text style={styles.buyerName}>Customer #{b.id.slice(0, 6).toUpperCase()}</Text>
+                    <Text style={styles.buyerOrders}>{b.orderCount} order{b.orderCount !== 1 ? 's' : ''}</Text>
+                  </View>
+                  <Text style={styles.buyerSpend}>
+                    ₱{b.spend >= 1000 ? `${(b.spend / 1000).toFixed(1)}k` : b.spend}
+                  </Text>
+                </View>
+              ))}
+            </View>
+          )}
+
+          {/* ─── Recent Orders ────────────────────────────────────── */}
+          <View style={[styles.sectionHeader, { zIndex: orderDropdownOpen ? 20 : 1 }]}>
+            <Text style={styles.sectionTitle}>Recent Orders</Text>
             <View style={{ position: 'relative' }}>
               <Pressable
-                style={styles.sortWrap}
-                onPress={() => {
-                  setSalesDropdownOpen(false);
-                  setOrderDropdownOpen((v) => !v);
-                }}
+                style={styles.filterBtn}
+                onPress={() => { setSalesDropdownOpen(false); setOrderDropdownOpen((v) => !v); }}
               >
-                <Text style={styles.sortText}>{orderFilter === 'All' ? 'Newest Orders' : orderFilter}</Text>
-                <Text style={{ fontSize: 10, color: COLORS.textSecondary }}>
-                  {orderDropdownOpen ? '  ▴' : '  ▾'}
-                </Text>
+                <Text style={styles.filterBtnText}>{orderFilter === 'All' ? 'All Status' : orderFilter}</Text>
+                {/* ── arrow fontSize 20 ── */}
+                <Text style={styles.filterBtnArrow}>{orderDropdownOpen ? '▴' : '▾'}</Text>
               </Pressable>
-
               {orderDropdownOpen && (
                 <View style={[styles.dropdown, styles.dropdownRight]}>
                   {ORDER_FILTERS.map((f) => (
                     <Pressable
                       key={f}
-                      style={[
-                        styles.dropdownItem,
-                        orderFilter === f && styles.dropdownItemActive,
-                      ]}
-                      onPress={() => {
-                        setOrderFilter(f);
-                        setOrderDropdownOpen(false);
-                      }}
+                      style={[styles.dropdownItem, orderFilter === f && styles.dropdownItemActive]}
+                      onPress={() => { setOrderFilter(f); setOrderDropdownOpen(false); }}
                     >
-                      <Text
-                        style={[
-                          styles.dropdownItemText,
-                          orderFilter === f && styles.dropdownItemTextActive,
-                        ]}
-                      >
-                        {f}
-                      </Text>
-                      {orderFilter === f && (
-                        <Text style={{ fontSize: 12, color: COLORS.primary }}>✓</Text>
-                      )}
+                      <Text style={[styles.dropdownItemText, orderFilter === f && styles.dropdownItemTextActive]}>{f}</Text>
+                      {orderFilter === f && <Text style={{ fontSize: 12, color: COLORS.primary }}>✓</Text>}
                     </Pressable>
                   ))}
                 </View>
@@ -426,63 +483,58 @@ export default function SellerDashboardScreen({ navigation }: SellerDashboardScr
             </View>
           </View>
 
-          {/* ─── Orders list ─────────────────────────────────── */}
           {filteredOrders.length === 0 ? (
             <View style={styles.emptyCard}>
-              <Text style={{ fontSize: 32, color: COLORS.borderDark }}>◻</Text>
+              <Text style={{ fontSize: 32 }}>📋</Text>
               <Text style={styles.emptyTitle}>No orders found</Text>
               <Text style={styles.emptyText}>
                 {orderFilter === 'All'
-                  ? 'Your orders will appear here once buyers start purchasing'
+                  ? 'Orders will appear once buyers start purchasing'
                   : `No ${orderFilter.toLowerCase()} orders at the moment`}
               </Text>
             </View>
           ) : (
-            filteredOrders.map((order) => {
-              const firstItem = order.items?.[0];
-              const color = STATUS_COLORS[order.status] ?? { bg: '#F3F4F6', text: '#6B7280' };
-              return (
-                <Pressable
-                  key={order.id}
-                  style={({ pressed }) => [styles.orderRow, pressed && styles.orderRowPressed]}
-                >
-                  {/* Thumbnail */}
-                  <View style={styles.orderImageWrap}>
-                    {firstItem?.product?.images?.[0] ? (
-                      <Image
-                        source={{ uri: firstItem.product.images[0] }}
-                        style={styles.orderImage}
-                        resizeMode="cover"
-                      />
-                    ) : (
-                      <Text style={styles.orderImagePlaceholder}>◻</Text>
-                    )}
-                  </View>
-
-                  {/* Info */}
-                  <View style={styles.orderInfo}>
-                    <Text style={styles.orderItemName} numberOfLines={1}>
-                      {firstItem?.product?.name ?? `Order #${order.id.slice(0, 6).toUpperCase()}`}
-                    </Text>
-                    <Text style={styles.orderMeta}>
-                      {order.shippingAddress?.split(',')[0]} · #{order.id.slice(0, 6).toUpperCase()}
-                    </Text>
-                    {/* Status badge */}
-                    <View style={[styles.statusBadge, { backgroundColor: color.bg }]}>
-                      <Text style={[styles.statusBadgeText, { color: color.text }]}>
-                        {order.status.charAt(0).toUpperCase() + order.status.slice(1)}
-                      </Text>
+            <View style={styles.card}>
+              {filteredOrders.map((order, i) => {
+                const firstItem = order.items?.[0];
+                const color = STATUS_COLORS[order.status] ?? { bg: '#F3F4F6', text: '#6B7280' };
+                return (
+                  <Pressable
+                    key={order.id}
+                    style={({ pressed }) => [
+                      styles.orderRow,
+                      i < filteredOrders.length - 1 && styles.orderRowBorder,
+                      pressed && { opacity: 0.85 },
+                    ]}
+                  >
+                    <View style={styles.orderThumb}>
+                      {firstItem?.product?.images?.[0] ? (
+                        <Image source={{ uri: firstItem.product.images[0] }} style={styles.orderThumbImage} resizeMode="cover" />
+                      ) : (
+                        <Text style={{ fontSize: 20 }}>📦</Text>
+                      )}
                     </View>
-                  </View>
-
-                  {/* Amount */}
-                  <Text style={styles.orderAmount}>
-                    ₱{order.totalAmount.toLocaleString()}
-                  </Text>
-                </Pressable>
-              );
-            })
+                    <View style={styles.orderInfo}>
+                      <Text style={styles.orderName} numberOfLines={1}>
+                        {firstItem?.product?.name ?? `Order #${order.id.slice(0, 6).toUpperCase()}`}
+                      </Text>
+                      <Text style={styles.orderMeta}>
+                        #{order.id.slice(0, 6).toUpperCase()} · {order.shippingAddress?.split(',')[0]}
+                      </Text>
+                      <View style={[styles.statusBadge, { backgroundColor: color.bg }]}>
+                        <Text style={[styles.statusBadgeText, { color: color.text }]}>
+                          {order.status.charAt(0).toUpperCase() + order.status.slice(1)}
+                        </Text>
+                      </View>
+                    </View>
+                    <Text style={styles.orderAmount}>₱{order.totalAmount.toLocaleString()}</Text>
+                  </Pressable>
+                );
+              })}
+            </View>
           )}
+
+          <View style={{ height: 32 }} />
         </View>
       </ScrollView>
     </TouchableWithoutFeedback>

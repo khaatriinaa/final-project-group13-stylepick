@@ -4,8 +4,13 @@ import React from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { Text, ActivityIndicator, View } from 'react-native';
+import {
+  Text, ActivityIndicator, View, Pressable,
+  StyleSheet, Platform,
+} from 'react-native';
 import { useAuth } from '../context/AuthContext';
+import { useNavigation } from '@react-navigation/native';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 import {
   RootStackParamList,
@@ -21,32 +26,32 @@ import LoginScreen    from '../screens/auth/Login/LoginScreen';
 import RegisterScreen from '../screens/auth/Register/RegisterScreen';
 
 // Buyer
-import BuyerHomeScreen            from '../screens/buyer/Home/BuyerHomeScreen';
-import ProductDetailScreen        from '../screens/buyer/ProductDetail/ProductDetailScreen';
-import CartScreen                 from '../screens/buyer/Cart/CartScreen';
-import BuyerOrdersScreen          from '../screens/buyer/Orders/BuyerOrdersScreen';
-import BuyerOrderDetailScreen     from '../screens/buyer/Orders/BuyerOrderDetailScreen';
-import BuyerProfileScreen         from '../screens/buyer/Profile/BuyerProfileScreen';
-import CheckoutScreen             from '../screens/buyer/Checkout/CheckoutScreen';
-import BuyerNotificationsScreen   from '../screens/buyer/Notifications/BuyerNotificationsScreen';
-import EditProfileScreen          from '../screens/buyer/EditProfile/EditProfileScreen';
+import BuyerHomeScreen          from '../screens/buyer/Home/BuyerHomeScreen';
+import ProductDetailScreen      from '../screens/buyer/ProductDetail/ProductDetailScreen';
+import CartScreen               from '../screens/buyer/Cart/CartScreen';
+import BuyerOrdersScreen        from '../screens/buyer/Orders/BuyerOrdersScreen';
+import BuyerOrderDetailScreen   from '../screens/buyer/Orders/BuyerOrderDetailScreen';
+import BuyerProfileScreen       from '../screens/buyer/Profile/BuyerProfileScreen';
+import CheckoutScreen           from '../screens/buyer/Checkout/CheckoutScreen';
+import BuyerNotificationsScreen from '../screens/buyer/Notifications/BuyerNotificationsScreen';
+import EditProfileScreen        from '../screens/buyer/EditProfile/EditProfileScreen';
 
 // Seller
-import SellerDashboardScreen      from '../screens/seller/Dashboard/SellerDashboardScreen';
-import SellerProductsScreen       from '../screens/seller/Products/SellerProductsScreen';
-import AddProductScreen           from '../screens/seller/AddProduct/AddProductScreen';
-import SellerOrdersScreen         from '../screens/seller/Orders/SellerOrdersScreen';
-import SellerProfileScreen        from '../screens/seller/Profile/SellerProfileScreen';
-import SellerNotificationsScreen  from '../screens/seller/Notifications/SellerNotificationsScreen';
+import SellerDashboardScreen     from '../screens/seller/Dashboard/SellerDashboardScreen';
+import SellerProductsScreen      from '../screens/seller/Products/SellerProductsScreen';
+import AddProductScreen          from '../screens/seller/AddProduct/AddProductScreen';
+import SellerOrdersScreen        from '../screens/seller/Orders/SellerOrdersScreen';
+import SellerProfileScreen       from '../screens/seller/Profile/SellerProfileScreen';
+import SellerNotificationsScreen from '../screens/seller/Notifications/SellerNotificationsScreen';
 
-const RootStack  = createNativeStackNavigator<RootStackParamList>();
-const AuthStack  = createNativeStackNavigator<AuthStackParamList>();
-const BuyerStack = createNativeStackNavigator<BuyerStackParamList>();
-const BuyerTab   = createBottomTabNavigator<BuyerTabParamList>();
+const RootStack   = createNativeStackNavigator<RootStackParamList>();
+const AuthStack   = createNativeStackNavigator<AuthStackParamList>();
+const BuyerStack  = createNativeStackNavigator<BuyerStackParamList>();
+const BuyerTab    = createBottomTabNavigator<BuyerTabParamList>();
 const SellerStack = createNativeStackNavigator<SellerStackParamList>();
-const SellerTab  = createBottomTabNavigator<SellerTabParamList>();
+const SellerTab   = createBottomTabNavigator<SellerTabParamList>();
 
-// ─── Auth ─────────────────────────────────────────────────────
+// ─── Auth ──────────────────────────────────────────────────────────────────────
 function AuthNavigator() {
   return (
     <AuthStack.Navigator screenOptions={{ headerShown: false }}>
@@ -56,7 +61,7 @@ function AuthNavigator() {
   );
 }
 
-// ─── Buyer Tabs ───────────────────────────────────────────────
+// ─── Buyer Tabs ────────────────────────────────────────────────────────────────
 function BuyerTabNavigator() {
   return (
     <BuyerTab.Navigator
@@ -78,8 +83,8 @@ function BuyerTabNavigator() {
           backgroundColor: '#FFFFFF',
           borderTopWidth: 1,
           borderTopColor: '#F3F4F6',
-          height: 84,
-          paddingBottom: 24,
+          height: Platform.OS === 'ios' ? 84 : 64,
+          paddingBottom: Platform.OS === 'ios' ? 24 : 8,
           paddingTop: 10,
         },
         tabBarLabelStyle: { fontSize: 11, fontWeight: '600' },
@@ -106,39 +111,86 @@ function BuyerNavigator() {
   );
 }
 
-// ─── Seller Tabs ──────────────────────────────────────────────
+// ─── Seller — center FAB "+" button ───────────────────────────────────────────
+function AddProductTabButton() {
+  const nav = useNavigation<NativeStackNavigationProp<SellerStackParamList>>();
+  return (
+    <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+      <Pressable
+        style={({ pressed }) => [
+          navStyles.fab,
+          pressed && { opacity: 0.85, transform: [{ scale: 0.95 }] },
+        ]}
+        onPress={() => nav.navigate('AddProduct', { productId: undefined })}
+      >
+        <Text style={navStyles.fabText}>+</Text>
+      </Pressable>
+    </View>
+  );
+}
+
 function SellerTabNavigator() {
   return (
     <SellerTab.Navigator
-      screenOptions={({ route }) => ({
+      screenOptions={{
         headerShown: false,
-        tabBarIcon: ({ focused }: { focused: boolean }) => {
-          const icons: Record<string, string> = {
-            Dashboard: '◈', Products: '◉', SellerOrders: '◧', SellerProfile: '◎',
-          };
-          return (
-            <Text style={{ fontSize: 18, color: focused ? '#1D3557' : '#9CA3AF' }}>
-              {icons[route.name]}
-            </Text>
-          );
-        },
-        tabBarActiveTintColor:   '#1D3557',
+        tabBarActiveTintColor:   '#F97316',
         tabBarInactiveTintColor: '#9CA3AF',
-        tabBarStyle: {
-          backgroundColor: '#FFFFFF',
-          borderTopWidth: 1,
-          borderTopColor: '#F3F4F6',
-          height: 84,
-          paddingBottom: 24,
-          paddingTop: 10,
-        },
-        tabBarLabelStyle: { fontSize: 11, fontWeight: '600' },
-      })}
+        tabBarStyle: navStyles.tabBar,
+        tabBarLabelStyle: navStyles.tabLabel,
+      }}
     >
-      <SellerTab.Screen name="Dashboard"    component={SellerDashboardScreen} />
-      <SellerTab.Screen name="Products"     component={SellerProductsScreen} />
-      <SellerTab.Screen name="SellerOrders" component={SellerOrdersScreen}    options={{ tabBarLabel: 'Orders' }} />
-      <SellerTab.Screen name="SellerProfile" component={SellerProfileScreen}  options={{ tabBarLabel: 'Profile' }} />
+      <SellerTab.Screen
+        name="Dashboard"
+        component={SellerDashboardScreen}
+        options={{
+          tabBarLabel: 'Home',
+          tabBarIcon: ({ color }) => (
+            <Text style={[navStyles.tabIcon, { color }]}>⌂</Text>
+          ),
+        }}
+      />
+      <SellerTab.Screen
+        name="SellerOrders"
+        component={SellerOrdersScreen}
+        options={{
+          tabBarLabel: 'Orders',
+          tabBarIcon: ({ color }) => (
+            <Text style={[navStyles.tabIcon, { color }]}>🚚</Text>
+          ),
+        }}
+      />
+
+      {/* ── Center FAB ── */}
+      <SellerTab.Screen
+        name={"AddProductTab" as any}
+        component={SellerProductsScreen}
+        options={{
+          tabBarLabel: '',
+          tabBarButton: () => <AddProductTabButton />,
+        }}
+      />
+
+      <SellerTab.Screen
+        name="Products"
+        component={SellerProductsScreen}
+        options={{
+          tabBarLabel: 'Product',
+          tabBarIcon: ({ color }) => (
+            <Text style={[navStyles.tabIcon, { color }]}>🎁</Text>
+          ),
+        }}
+      />
+      <SellerTab.Screen
+        name="SellerProfile"
+        component={SellerProfileScreen}
+        options={{
+          tabBarLabel: 'Setting',
+          tabBarIcon: ({ color }) => (
+            <Text style={[navStyles.tabIcon, { color }]}>⚙️</Text>
+          ),
+        }}
+      />
     </SellerTab.Navigator>
   );
 }
@@ -153,7 +205,7 @@ function SellerNavigator() {
   );
 }
 
-// ─── Root — driven by AuthContext ────────────────────────────
+// ─── Root ──────────────────────────────────────────────────────────────────────
 export default function AppNavigator() {
   const { user, loading } = useAuth();
 
@@ -179,3 +231,45 @@ export default function AppNavigator() {
     </NavigationContainer>
   );
 }
+
+// ─── Styles ────────────────────────────────────────────────────────────────────
+const navStyles = StyleSheet.create({
+  tabBar: {
+    backgroundColor: '#FFFFFF',
+    borderTopWidth: 1,
+    borderTopColor: '#F0F0F0',
+    height: Platform.OS === 'ios' ? 88 : 68,
+    paddingBottom: Platform.OS === 'ios' ? 24 : 8,
+    paddingTop: 8,
+    elevation: 12,
+    shadowColor: '#000',
+    shadowOpacity: 0.06,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: -3 },
+  },
+  tabLabel: {
+    fontSize: 11,
+    fontWeight: '500',
+    marginTop: 2,
+  },
+  tabIcon: {
+    fontSize: 22,
+  },
+  // Elevated orange FAB center button
+fab: {
+  width: 58,
+  height: 58,
+  borderRadius: 29,
+  backgroundColor: '#F97316',
+  alignItems: 'center',
+  justifyContent: 'center',
+  top: 0,
+},
+  fabText: {
+    color: '#FFFFFF',
+    fontSize: 32,
+    lineHeight: 36,
+    fontWeight: '300',
+    marginTop: -2,
+  },
+});
