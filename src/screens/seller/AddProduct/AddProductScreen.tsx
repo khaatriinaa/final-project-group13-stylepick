@@ -525,7 +525,7 @@ function ProductForm({
             <ActivityIndicator color="#FFF" />
           ) : (
             <>
-              <Text style={{ fontSize: 16 }}>{isEditing ? '✓' : '🚀'}</Text>
+              <Text style={{ fontSize: 16 }}>{isEditing}</Text>
               <Text style={styles.submitBtnText}>
                 {isEditing ? 'Save Changes' : 'Publish Listing'}
               </Text>

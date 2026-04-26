@@ -23,7 +23,7 @@ export default function CheckoutScreen({ navigation }: CheckoutScreenProps) {
   const { cartItems, total, clearCart } = useCart();
   const { user } = useAuth();
   const [submitting, setSubmitting] = useState(false);
-  const [locating, setLocating] = useState(false);
+  const [locating, setLocating]     = useState(false);
 
   // Group by seller
   const bySeller = cartItems.reduce<Record<string, typeof cartItems>>((acc, item) => {
@@ -33,7 +33,7 @@ export default function CheckoutScreen({ navigation }: CheckoutScreenProps) {
     return acc;
   }, {});
 
-  // ─── Location: auto-fill address ─────────────────────────────
+  // ─── Location: auto-fill address ─────────────────────────────────────────
   const getLocation = async (setFieldValue: (field: string, value: string) => void) => {
     setLocating(true);
     try {
@@ -60,12 +60,20 @@ export default function CheckoutScreen({ navigation }: CheckoutScreenProps) {
     }
   };
 
+  // ─── Place order ──────────────────────────────────────────────────────────
   const handlePlaceOrder = async (values: { address: string }) => {
     if (!user?.id || cartItems.length === 0) return;
     setSubmitting(true);
     try {
       for (const [sellerId, items] of Object.entries(bySeller)) {
-        await placeOrder({ buyerId: user.id, sellerId, items, shippingAddress: values.address });
+        await placeOrder({
+          buyerId:         user.id,
+          sellerId,
+          items,
+          shippingAddress: values.address,
+          buyerName:       user.name,   // ← ADDED
+          buyerPhone:      user.phone,  // ← ADDED
+        });
       }
       clearCart();
       Alert.alert('🎉 Order Placed!', 'Your order was sent to the seller. Track it in My Orders.', [

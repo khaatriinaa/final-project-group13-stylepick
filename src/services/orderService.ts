@@ -1,5 +1,3 @@
-// src/services/orderService.ts
-
 import { Storage } from '../storage/storage';
 import { KEYS } from '../storage/keys';
 import { Order, OrderStatus, CartItem } from '../types';
@@ -10,15 +8,13 @@ import {
   notifyNewOrder,
   notifyOrderStatusUpdate,
 } from './pushNotificationService';
-import { supabase } from './supabaseClient'; // ← ADDED
+import { supabase } from './supabaseClient';
 
 const generateId = () => Math.random().toString(36).slice(2) + Date.now().toString(36);
 
-// ─── READ: Buyer's orders ─────────────────────────────────────
-export const getMyOrdersAsBuyer = async (buyerId: string): Promise<Order[]> => {
-  const all = await Storage.getList<Order>(KEYS.ORDERS);
+// ─── READ: Buyer's orders ─────────────────────────────────────────────────────
 
-  // ─── SUPABASE: Fetch buyer's orders from Supabase ────────────
+export const getMyOrdersAsBuyer = async (buyerId: string): Promise<Order[]> => {
   try {
     const { data, error } = await supabase
       .from('orders')
@@ -30,18 +26,16 @@ export const getMyOrdersAsBuyer = async (buyerId: string): Promise<Order[]> => {
   } catch (supabaseError) {
     console.warn('Supabase getMyOrdersAsBuyer error (falling back to local):', supabaseError);
   }
-  // ─────────────────────────────────────────────────────────────
 
+  const all = await Storage.getList<Order>(KEYS.ORDERS);
   return all
     .filter((o) => o.buyerId === buyerId)
     .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 };
 
-// ─── READ: Seller's orders ────────────────────────────────────
-export const getMyOrdersAsSeller = async (sellerId: string): Promise<Order[]> => {
-  const all = await Storage.getList<Order>(KEYS.ORDERS);
+// ─── READ: Seller's orders ────────────────────────────────────────────────────
 
-  // ─── SUPABASE: Fetch seller's orders from Supabase ───────────
+export const getMyOrdersAsSeller = async (sellerId: string): Promise<Order[]> => {
   try {
     const { data, error } = await supabase
       .from('orders')
@@ -53,36 +47,62 @@ export const getMyOrdersAsSeller = async (sellerId: string): Promise<Order[]> =>
   } catch (supabaseError) {
     console.warn('Supabase getMyOrdersAsSeller error (falling back to local):', supabaseError);
   }
-  // ─────────────────────────────────────────────────────────────
 
+  const all = await Storage.getList<Order>(KEYS.ORDERS);
   return all
     .filter((o) => o.sellerId === sellerId)
     .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 };
 
-// ─── READ: Dashboard stats ────────────────────────────────────
+// ─── READ: Single order by ID ─────────────────────────────────────────────────
+
+export const getOrderById = async (orderId: string): Promise<Order | null> => {
+  try {
+    const { data, error } = await supabase
+      .from('orders')
+      .select('*, order_items(*, products(*))')
+      .eq('id', orderId)
+      .single();
+    if (error) throw error;
+    if (data) return data as unknown as Order;
+  } catch (err) {
+    console.warn('Supabase getOrderById error (falling back to local):', err);
+  }
+
+  const all = await Storage.getList<Order>(KEYS.ORDERS);
+  return all.find((o) => o.id === orderId) ?? null;
+};
+
+// ─── READ: Dashboard stats ────────────────────────────────────────────────────
+
 export const getSellerStats = async (sellerId: string) => {
   const orders = await getMyOrdersAsSeller(sellerId);
-  const totalOrders = orders.length;
-  const totalRevenue = orders
+  const totalOrders   = orders.length;
+  const totalRevenue  = orders
     .filter((o) => o.status === 'delivered')
     .reduce((sum, o) => sum + o.totalAmount, 0);
   const pendingOrders = orders.filter((o) => o.status === 'pending').length;
   return { totalOrders, totalRevenue, pendingOrders };
 };
 
-// ─── CREATE: Buyer places an order ───────────────────────────
+// ─── CREATE: Buyer places an order ───────────────────────────────────────────
+
 export type PlaceOrderPayload = {
-  buyerId: string;
-  sellerId: string;
-  items: CartItem[];
+  buyerId:         string;
+  sellerId:        string;
+  items:           CartItem[];
   shippingAddress: string;
+  buyerName?:      string;  // ← ADDED
+  buyerPhone?:     string;  // ← ADDED
 };
 
 export const placeOrder = async (payload: PlaceOrderPayload): Promise<Order> => {
-  const all = await Storage.getList<Order>(KEYS.ORDERS);
-  const now = new Date().toISOString();
-  const totalAmount = payload.items.reduce((sum, i) => sum + i.product.price * i.quantity, 0);
+  const all  = await Storage.getList<Order>(KEYS.ORDERS);
+  const now  = new Date().toISOString();
+  const totalAmount = payload.items.reduce(
+    (sum, i) => sum + i.product.price * i.quantity,
+    0,
+  );
 
   const newOrder: Order = {
     id:              generateId(),
@@ -93,6 +113,8 @@ export const placeOrder = async (payload: PlaceOrderPayload): Promise<Order> => 
     paymentStatus:   'pending',
     paymentMethod:   'COD',
     shippingAddress: payload.shippingAddress,
+    buyerName:       payload.buyerName,   // ← ADDED
+    buyerPhone:      payload.buyerPhone,  // ← ADDED
     totalAmount,
     createdAt:       now,
     updatedAt:       now,
@@ -104,18 +126,16 @@ export const placeOrder = async (payload: PlaceOrderPayload): Promise<Order> => 
     await decrementStock(item.product.id, item.quantity);
   }
 
-  // AsyncStorage notification (in-app)
   await createNotification({
     userId:  payload.sellerId,
     message: `New order #${newOrder.id.slice(0, 8).toUpperCase()} received! ₱${totalAmount.toLocaleString()}`,
     orderId: newOrder.id,
   });
 
-  // Push notification (phone alert) — buyer confirms, seller gets notified
   await notifyOrderPlaced(newOrder.id, totalAmount);
   await notifyNewOrder(newOrder.id, totalAmount);
 
-  // ─── SUPABASE: Insert new order + order items into Supabase ──
+  // ─── Supabase ─────────────────────────────────────────────────────────────
   try {
     const { error: orderError } = await supabase.from('orders').insert({
       id:               newOrder.id,
@@ -128,6 +148,7 @@ export const placeOrder = async (payload: PlaceOrderPayload): Promise<Order> => 
       total_amount:     newOrder.totalAmount,
       created_at:       newOrder.createdAt,
       updated_at:       newOrder.updatedAt,
+      // buyer_name and buyer_phone intentionally omitted until DB column is added
     });
     if (orderError) throw orderError;
 
@@ -142,16 +163,16 @@ export const placeOrder = async (payload: PlaceOrderPayload): Promise<Order> => 
   } catch (supabaseError) {
     console.warn('Supabase placeOrder error (local save succeeded):', supabaseError);
   }
-  // ─────────────────────────────────────────────────────────────
 
   return newOrder;
 };
 
-// ─── UPDATE: Seller updates order status ─────────────────────
+// ─── UPDATE: Seller updates order status ─────────────────────────────────────
+
 export const updateOrderStatus = async (
-  orderId: string,
+  orderId:   string,
   newStatus: OrderStatus,
-  buyerId: string
+  buyerId:   string,
 ): Promise<void> => {
   const all = await Storage.getList<Order>(KEYS.ORDERS);
   const now = new Date().toISOString();
@@ -159,9 +180,9 @@ export const updateOrderStatus = async (
   const newList = all.map((o) => {
     if (o.id !== orderId) return o;
     const paymentStatus =
-      newStatus === 'delivered' ? 'paid' :
+      newStatus === 'delivered' ? 'paid'      :
       newStatus === 'cancelled' ? 'cancelled' :
-      newStatus === 'refunded'  ? 'refunded' :
+      newStatus === 'refunded'  ? 'refunded'  :
       o.paymentStatus;
     return { ...o, status: newStatus, paymentStatus, updatedAt: now };
   });
@@ -182,16 +203,15 @@ export const updateOrderStatus = async (
       message: `Your order #${orderId.slice(0, 8).toUpperCase()} is now ${label}.`,
       orderId,
     });
-    // Push notification to buyer's phone
     await notifyOrderStatusUpdate(orderId, label);
   }
 
-  // ─── SUPABASE: Update order status in Supabase ───────────────
+  // ─── Supabase ─────────────────────────────────────────────────────────────
   try {
     const paymentStatus =
-      newStatus === 'delivered' ? 'paid' :
+      newStatus === 'delivered' ? 'paid'      :
       newStatus === 'cancelled' ? 'cancelled' :
-      newStatus === 'refunded'  ? 'refunded' :
+      newStatus === 'refunded'  ? 'refunded'  :
       undefined;
 
     const supabaseUpdates: Record<string, any> = {
@@ -210,21 +230,21 @@ export const updateOrderStatus = async (
   } catch (supabaseError) {
     console.warn('Supabase updateOrderStatus error (local update succeeded):', supabaseError);
   }
-  // ─────────────────────────────────────────────────────────────
 };
 
-// ─── UPDATE: Buyer cancels a pending order ───────────────────
+// ─── UPDATE: Buyer cancels a pending order ────────────────────────────────────
+
 export const cancelOrder = async (orderId: string, sellerId: string): Promise<void> => {
-  const all = await Storage.getList<Order>(KEYS.ORDERS);
+  const all   = await Storage.getList<Order>(KEYS.ORDERS);
   const order = all.find((o) => o.id === orderId);
   if (!order) throw new Error('Order not found.');
   if (order.status !== 'pending') throw new Error('Only pending orders can be cancelled.');
 
-  const now = new Date().toISOString();
+  const now     = new Date().toISOString();
   const newList = all.map((o) =>
     o.id === orderId
       ? { ...o, status: 'cancelled' as OrderStatus, paymentStatus: 'cancelled' as const, updatedAt: now }
-      : o
+      : o,
   );
   await Storage.set(KEYS.ORDERS, newList);
 
@@ -234,7 +254,7 @@ export const cancelOrder = async (orderId: string, sellerId: string): Promise<vo
     orderId,
   });
 
-  // ─── SUPABASE: Cancel order in Supabase ──────────────────────
+  // ─── Supabase ─────────────────────────────────────────────────────────────
   try {
     const { error } = await supabase
       .from('orders')
@@ -248,5 +268,4 @@ export const cancelOrder = async (orderId: string, sellerId: string): Promise<vo
   } catch (supabaseError) {
     console.warn('Supabase cancelOrder error (local update succeeded):', supabaseError);
   }
-  // ─────────────────────────────────────────────────────────────
 };

@@ -2,14 +2,14 @@
 import React, { useState, useCallback } from 'react';
 import {
   View, Text, FlatList, Pressable,
-  RefreshControl, ScrollView, Alert,
+  RefreshControl, ScrollView, Alert, Image,
 } from 'react-native';
-import { useFocusEffect } from '@react-navigation/native';
-import { SellerOrdersScreenProps } from '../../../props/props';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { SellerOrdersScreenProps, SellerStackParamList } from '../../../props/props';
 import { Order, OrderStatus } from '../../../types';
 import { getMyOrdersAsSeller, updateOrderStatus } from '../../../services/orderService';
 import { useAuth } from '../../../context/AuthContext';
-import { COLORS, STATUS_COLORS, FONTS } from '../../../theme';
 import { styles } from './SellerOrdersScreen.styles';
 
 const FILTERS: { label: string; value: OrderStatus | 'all' }[] = [
@@ -30,17 +30,35 @@ const NEXT_STATUS: Partial<Record<OrderStatus, OrderStatus>> = {
 };
 
 const NEXT_LABEL: Partial<Record<OrderStatus, string>> = {
-  pending:   'Confirm Order',
-  confirmed: 'Mark Preparing',
-  preparing: 'Mark Shipped',
-  shipped:   'Mark Delivered',
+  pending:   'Confirm',
+  confirmed: 'Preparing',
+  preparing: 'Shipped',
+  shipped:   'Delivered',
 };
+
+const STATUS_STYLE: Record<string, { bg: string; dot: string; text: string }> = {
+  pending:   { bg: '#FFF7ED', dot: '#F97316', text: '#C2410C' },
+  confirmed: { bg: '#EFF6FF', dot: '#3B82F6', text: '#1D4ED8' },
+  preparing: { bg: '#F5F3FF', dot: '#8B5CF6', text: '#6D28D9' },
+  shipped:   { bg: '#ECFEFF', dot: '#06B6D4', text: '#0E7490' },
+  delivered: { bg: '#F0FDF4', dot: '#22C55E', text: '#15803D' },
+  cancelled: { bg: '#FFF1F2', dot: '#F43F5E', text: '#BE123C' },
+};
+
+// ── Unified resolvers (mirrors dashboard logic) ────────────────────────────
+const resolveItemImage = (item: Order['items'][number]): string | undefined =>
+  item.image ?? item.product?.images?.[0] ?? undefined;
+
+const resolveItemName = (item: Order['items'][number]): string =>
+  item.productName ?? item.product?.name ?? item.name ?? 'Item';
 
 export default function SellerOrdersScreen({ navigation }: SellerOrdersScreenProps) {
   const { user } = useAuth();
-  const [orders, setOrders] = useState<Order[]>([]);
+  const stackNav = useNavigation<NativeStackNavigationProp<SellerStackParamList>>();
+
+  const [orders, setOrders]             = useState<Order[]>([]);
   const [activeFilter, setActiveFilter] = useState<OrderStatus | 'all'>('all');
-  const [refreshing, setRefreshing] = useState(false);
+  const [refreshing, setRefreshing]     = useState(false);
 
   const fetchOrders = useCallback(async () => {
     if (!user?.id) return;
@@ -50,7 +68,9 @@ export default function SellerOrdersScreen({ navigation }: SellerOrdersScreenPro
   useFocusEffect(useCallback(() => { fetchOrders(); }, [fetchOrders]));
 
   const handleRefresh = useCallback(async () => {
-    setRefreshing(true); await fetchOrders(); setRefreshing(false);
+    setRefreshing(true);
+    await fetchOrders();
+    setRefreshing(false);
   }, [fetchOrders]);
 
   const handleUpdateStatus = (order: Order, newStatus: OrderStatus) => {
@@ -76,7 +96,7 @@ export default function SellerOrdersScreen({ navigation }: SellerOrdersScreenPro
   const handleCancel = (order: Order) => {
     Alert.alert(
       'Cancel Order',
-      `Are you sure you want to cancel order #${order.id.slice(0, 8).toUpperCase()}?`,
+      `Cancel order #${order.id.slice(0, 8).toUpperCase()}?`,
       [
         { text: 'No', style: 'cancel' },
         {
@@ -98,82 +118,124 @@ export default function SellerOrdersScreen({ navigation }: SellerOrdersScreenPro
     : orders.filter((o) => o.status === activeFilter);
 
   const renderOrder = ({ item }: { item: Order }) => {
-    const color = STATUS_COLORS[item.status] ?? { bg: '#F3F4F6', text: '#6B7280' };
+    const s          = STATUS_STYLE[item.status] ?? { bg: '#F3F4F6', dot: '#9CA3AF', text: '#6B7280' };
     const nextStatus = NEXT_STATUS[item.status];
-    const nextLabel = NEXT_LABEL[item.status];
-    const showActions = nextStatus || item.status === 'pending';
+    const nextLabel  = NEXT_LABEL[item.status];
+
+    const previewItems = item.items.slice(0, 3);
+    const extraCount   = item.items.length - previewItems.length;
+
+    // Use unified name resolver for every item
+    const itemNames = item.items
+      .slice(0, 2)
+      .map((i) => resolveItemName(i))
+      .join(', ');
+    const moreNames = item.items.length > 2 ? ` +${item.items.length - 2} more` : '';
 
     return (
-      <View style={styles.orderCard}>
-        {/* Header */}
+      <Pressable
+        style={({ pressed }) => [styles.orderCard, pressed && { opacity: 0.97 }]}
+        onPress={() => stackNav.navigate('SellerOrderDetail', { orderId: item.id })}
+      >
+        {/* ── Header: order ID + status ── */}
         <View style={styles.cardHeader}>
-          <Text style={styles.orderId}>#{item.id.slice(0, 8).toUpperCase()}</Text>
-          <View style={[styles.statusBadge, { backgroundColor: color.bg }]}>
-            <Text style={[styles.statusText, { color: color.text }]}>
+          <View>
+            <Text style={styles.orderId}>#{item.id.slice(0, 8).toUpperCase()}</Text>
+            <Text style={styles.orderDate}>
+              {new Date(item.createdAt).toLocaleDateString('en-PH', {
+                month: 'short', day: 'numeric', year: 'numeric',
+              })}
+            </Text>
+          </View>
+          <View style={[styles.statusBadge, { backgroundColor: s.bg }]}>
+            <View style={[styles.statusDot, { backgroundColor: s.dot }]} />
+            <Text style={[styles.statusText, { color: s.text }]}>
               {item.status.charAt(0).toUpperCase() + item.status.slice(1)}
             </Text>
           </View>
         </View>
 
-        {/* Body */}
-        <View style={styles.cardBody}>
-          <Text style={styles.amount}>₱{item.totalAmount.toLocaleString()}</Text>
-          <View style={styles.infoRow}>
-            <Text style={styles.infoLabel}>Date</Text>
-            <Text style={styles.infoValue}>
-              {new Date(item.createdAt).toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' })}
+        {/* ── Item preview strip: thumbnails + names ── */}
+        <View style={styles.itemsStrip}>
+          {previewItems.map((orderItem, idx) => {
+            const imageUri = resolveItemImage(orderItem);
+            return (
+              <View key={idx} style={styles.itemThumb}>
+                {imageUri ? (
+                  <Image
+                    source={{ uri: imageUri }}
+                    style={styles.itemThumbImage}
+                    resizeMode="cover"
+                  />
+                ) : (
+                  <View style={styles.itemThumbPlaceholder}>
+                    <Text style={styles.itemThumbPlaceholderText}>📦</Text>
+                  </View>
+                )}
+              </View>
+            );
+          })}
+          {extraCount > 0 && (
+            <View style={styles.moreItemsBadge}>
+              <Text style={styles.moreItemsText}>+{extraCount}</Text>
+            </View>
+          )}
+          <View style={styles.itemsInfo}>
+            <Text style={styles.itemsNames} numberOfLines={2}>
+              {itemNames}{moreNames}
             </Text>
-          </View>
-          <View style={styles.infoRow}>
-            <Text style={styles.infoLabel}>Address</Text>
-            <Text style={styles.infoValue} numberOfLines={1}>{item.shippingAddress}</Text>
-          </View>
-          <View style={styles.infoRow}>
-            <Text style={styles.infoLabel}>Items</Text>
-            <Text style={styles.infoValue}>
-              {item.items.length} item{item.items.length !== 1 ? 's' : ''} · Cash on Delivery
+            <Text style={styles.itemsSubtext}>
+              {item.items.length} item{item.items.length !== 1 ? 's' : ''}
             </Text>
           </View>
         </View>
 
-        {/* Actions */}
-        {showActions && (
-          <>
-            <View style={styles.divider} />
-            <View style={styles.cardFooter}>
-              {nextStatus && nextLabel && (
-                <Pressable
-                  style={({ pressed }) => [styles.actionBtn, styles.actionBtnPrimary, pressed && styles.actionBtnPressed]}
-                  onPress={() => handleUpdateStatus(item, nextStatus)}
-                >
-                  <Text style={[styles.actionBtnText, styles.actionBtnTextPrimary]}>{nextLabel}</Text>
-                </Pressable>
-              )}
-              {item.status === 'pending' && (
-                <Pressable
-                  style={({ pressed }) => [styles.actionBtn, styles.actionBtnDanger, pressed && styles.actionBtnPressed]}
-                  onPress={() => handleCancel(item)}
-                >
-                  <Text style={[styles.actionBtnText, styles.actionBtnTextDanger]}>Cancel</Text>
-                </Pressable>
-              )}
-            </View>
-          </>
-        )}
-      </View>
+        {/* ── Footer: amount + action buttons ── */}
+        <View style={styles.cardFooter}>
+          <View style={styles.amountWrap}>
+            <Text style={styles.amount}>₱{item.totalAmount.toLocaleString()}</Text>
+            <Text style={styles.codLabel}>Cash on Delivery</Text>
+          </View>
+
+          {item.status === 'pending' && (
+            <Pressable
+              style={({ pressed }) => [styles.actionBtn, styles.actionBtnDanger, pressed && styles.actionBtnPressed]}
+              onPress={(e) => { e.stopPropagation(); handleCancel(item); }}
+            >
+              <Text style={[styles.actionBtnText, styles.actionBtnTextDanger]}>Cancel</Text>
+            </Pressable>
+          )}
+
+          {nextStatus && nextLabel && (
+            <Pressable
+              style={({ pressed }) => [styles.actionBtn, styles.actionBtnPrimary, pressed && styles.actionBtnPressed]}
+              onPress={(e) => { e.stopPropagation(); handleUpdateStatus(item, nextStatus); }}
+            >
+              <Text style={[styles.actionBtnText, styles.actionBtnTextPrimary]}>{nextLabel}</Text>
+            </Pressable>
+          )}
+
+          <Pressable
+            style={({ pressed }) => [styles.viewBtn, pressed && styles.actionBtnPressed]}
+            onPress={() => stackNav.navigate('SellerOrderDetail', { orderId: item.id })}
+          >
+            <Text style={styles.viewBtnText}>›</Text>
+          </Pressable>
+        </View>
+      </Pressable>
     );
   };
 
   return (
     <View style={styles.container}>
-      {/* Header */}
       <View style={styles.header}>
         <View style={styles.headerTop}>
           <Text style={styles.title}>Orders</Text>
-          <Text style={styles.orderCount}>{filtered.length} order{filtered.length !== 1 ? 's' : ''}</Text>
+          <Text style={styles.orderCount}>
+            {filtered.length} order{filtered.length !== 1 ? 's' : ''}
+          </Text>
         </View>
 
-        {/* Filter tabs */}
         <View style={styles.filterWrapper}>
           <ScrollView horizontal showsHorizontalScrollIndicator={false}>
             <View style={styles.filterRow}>
@@ -199,15 +261,15 @@ export default function SellerOrdersScreen({ navigation }: SellerOrdersScreenPro
         contentContainerStyle={styles.list}
         style={styles.flatList}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} colors={[COLORS.secondary]} tintColor={COLORS.secondary} />
+          <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} colors={['#F97316']} tintColor="#F97316" />
         }
         renderItem={renderOrder}
         ListEmptyComponent={
           <View style={styles.emptyWrap}>
-            <Text style={styles.emptyIcon}>◻</Text>
+            <Text style={styles.emptyIcon}>📋</Text>
             <Text style={styles.emptyTitle}>No orders found</Text>
             <Text style={styles.emptyText}>
-              {activeFilter === 'all' ? 'No orders yet' : `No ${activeFilter} orders`}
+              {activeFilter === 'all' ? 'You have no orders yet' : `No ${activeFilter} orders`}
             </Text>
           </View>
         }

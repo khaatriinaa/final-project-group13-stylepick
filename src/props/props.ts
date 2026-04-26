@@ -1,10 +1,8 @@
-// src/props/index.ts
-// Central file for all screen navigation props
-
+// src/props/props.ts
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import { RouteProp, CompositeNavigationProp } from '@react-navigation/native';
-import { Order } from '../types'; // ← ADDED: needed for BuyerOrderDetail param
+import { Order } from '../types';
 
 // ─── Stack Param Lists ────────────────────────────────────────────────────────
 
@@ -23,7 +21,7 @@ export type BuyerTabParamList = {
 export type BuyerStackParamList = {
   BuyerTabs: undefined;
   ProductDetail: { productId: string };
-  BuyerOrderDetail: { order: Order };   // ← ADDED
+  BuyerOrderDetail: { order: Order };
   Checkout: undefined;
   BuyerNotifications: undefined;
   EditProfile: undefined;
@@ -41,6 +39,7 @@ export type SellerStackParamList = {
   SellerTabs: undefined;
   AddProduct: { productId?: string };
   SellerNotifications: undefined;
+  SellerOrderDetail: { orderId: string }; 
 };
 
 export type RootStackParamList = {
@@ -49,7 +48,7 @@ export type RootStackParamList = {
   Seller: undefined;
 };
 
-// ─── Auth ─────────────────────────────────────────────────────────────────────
+// ─── Auth Props ───────────────────────────────────────────────────────────────
 
 export interface LoginScreenProps {
   navigation: NativeStackNavigationProp<AuthStackParamList, 'Login'>;
@@ -61,9 +60,7 @@ export interface RegisterScreenProps {
   route: RouteProp<AuthStackParamList, 'Register'>;
 }
 
-// ─── Buyer ────────────────────────────────────────────────────────────────────
-// BuyerHomeScreen lives inside the Tab navigator BUT needs to navigate
-// to ProductDetail (Stack screen). CompositeNavigationProp merges both.
+// ─── Buyer Props ──────────────────────────────────────────────────────────────
 
 export interface BuyerHomeScreenProps {
   navigation: CompositeNavigationProp<
@@ -78,7 +75,6 @@ export interface ProductDetailScreenProps {
   route: RouteProp<BuyerStackParamList, 'ProductDetail'>;
 }
 
-// CartScreen also needs to navigate to Checkout (Stack screen)
 export interface CartScreenProps {
   navigation: CompositeNavigationProp<
     BottomTabNavigationProp<BuyerTabParamList, 'Cart'>,
@@ -87,18 +83,35 @@ export interface CartScreenProps {
   route: RouteProp<BuyerTabParamList, 'Cart'>;
 }
 
-// BuyerOrdersScreen needs to navigate to BuyerOrderDetail (Stack screen)
 export interface BuyerOrdersScreenProps {
-  navigation: CompositeNavigationProp<          // ← UPDATED (was BottomTabNavigationProp only)
+  navigation: CompositeNavigationProp<
     BottomTabNavigationProp<BuyerTabParamList, 'Orders'>,
     NativeStackNavigationProp<BuyerStackParamList>
   >;
   route: RouteProp<BuyerTabParamList, 'Orders'>;
 }
 
-export interface BuyerOrderDetailScreenProps {  // ← ADDED
+export interface BuyerOrderDetailScreenProps {
   navigation: NativeStackNavigationProp<BuyerStackParamList, 'BuyerOrderDetail'>;
   route: RouteProp<BuyerStackParamList, 'BuyerOrderDetail'>;
+}
+
+// RESTORED: Missing Checkout Props
+export interface CheckoutScreenProps {
+  navigation: NativeStackNavigationProp<BuyerStackParamList, 'Checkout'>;
+  route: RouteProp<BuyerStackParamList, 'Checkout'>;
+}
+
+// RESTORED: Missing Notification Props
+export interface BuyerNotificationsScreenProps {
+  navigation: NativeStackNavigationProp<BuyerStackParamList, 'BuyerNotifications'>;
+  route: RouteProp<BuyerStackParamList, 'BuyerNotifications'>;
+}
+
+// RESTORED: Missing Edit Profile Props
+export interface EditProfileScreenProps {
+  navigation: NativeStackNavigationProp<BuyerStackParamList, 'EditProfile'>;
+  route: RouteProp<BuyerStackParamList, 'EditProfile'>;
 }
 
 export interface BuyerProfileScreenProps {
@@ -106,23 +119,7 @@ export interface BuyerProfileScreenProps {
   route: RouteProp<BuyerTabParamList, 'Profile'>;
 }
 
-export interface CheckoutScreenProps {
-  navigation: NativeStackNavigationProp<BuyerStackParamList, 'Checkout'>;
-  route: RouteProp<BuyerStackParamList, 'Checkout'>;
-}
-
-export interface BuyerNotificationsScreenProps {
-  navigation: NativeStackNavigationProp<BuyerStackParamList, 'BuyerNotifications'>;
-  route: RouteProp<BuyerStackParamList, 'BuyerNotifications'>;
-}
-
-export interface EditProfileScreenProps {
-  navigation: NativeStackNavigationProp<BuyerStackParamList, 'EditProfile'>;
-  route: RouteProp<BuyerStackParamList, 'EditProfile'>;
-}
-
-// ─── Seller ───────────────────────────────────────────────────────────────────
-// SellerProductsScreen lives in Tab but navigates to AddProduct (Stack screen)
+// ─── Seller Props ─────────────────────────────────────────────────────────────
 
 export interface SellerDashboardScreenProps {
   navigation: BottomTabNavigationProp<SellerTabParamList, 'Dashboard'>;
@@ -143,8 +140,16 @@ export interface AddProductScreenProps {
 }
 
 export interface SellerOrdersScreenProps {
-  navigation: BottomTabNavigationProp<SellerTabParamList, 'SellerOrders'>;
+  navigation: CompositeNavigationProp<
+    BottomTabNavigationProp<SellerTabParamList, 'SellerOrders'>,
+    NativeStackNavigationProp<SellerStackParamList>
+  >;
   route: RouteProp<SellerTabParamList, 'SellerOrders'>;
+}
+
+export interface SellerOrderDetailScreenProps {
+  navigation: NativeStackNavigationProp<SellerStackParamList, 'SellerOrderDetail'>;
+  route: RouteProp<SellerStackParamList, 'SellerOrderDetail'>;
 }
 
 export interface SellerProfileScreenProps {

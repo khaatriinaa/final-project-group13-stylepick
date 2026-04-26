@@ -1,13 +1,16 @@
 // src/screens/seller/Notifications/SellerNotificationsScreen.tsx
 import React, { useState, useCallback } from 'react';
-import { View, Text, FlatList, Pressable, RefreshControl, Alert } from 'react-native';
-import { useFocusEffect } from '@react-navigation/native';
+import {
+  View, Text, FlatList, Pressable,
+  RefreshControl, Alert, Platform,
+} from 'react-native';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useAuth } from '../../../context/AuthContext';
 import {
   getNotifications, markAsRead, markAllAsRead, deleteNotification,
 } from '../../../services/notificationService';
 import { Notification } from '../../../types';
-import { COLORS } from '../../../theme';
 import { styles } from './SellerNotificationsScreen.styles';
 
 function timeAgo(d: string): string {
@@ -20,10 +23,23 @@ function timeAgo(d: string): string {
   return `${Math.floor(h / 24)}d ago`;
 }
 
+const TYPE_META: Record<string, { icon: string; accent: string; bg: string }> = {
+  order:    { icon: '🛒', accent: '#F97316', bg: '#FFF5EE' },
+  payment:  { icon: '💳', accent: '#22C55E', bg: '#F0FDF4' },
+  alert:    { icon: '⚠️', accent: '#EAB308', bg: '#FEFCE8' },
+  system:   { icon: '⚙️', accent: '#6B7280', bg: '#F9FAFB' },
+  default:  { icon: '🔔', accent: '#5B8DEF', bg: '#EAF0FF' },
+};
+
+const getMeta = (type?: string) =>
+  TYPE_META[type ?? 'default'] ?? TYPE_META.default;
+
 export default function SellerNotificationsScreen() {
   const { user } = useAuth();
+  const navigation = useNavigation<NativeStackNavigationProp<any>>();
+
   const [notifications, setNotifications] = useState<Notification[]>([]);
-  const [refreshing, setRefreshing] = useState(false);
+  const [refreshing, setRefreshing]       = useState(false);
 
   const fetchNotifs = useCallback(async () => {
     if (!user?.id) return;
@@ -33,23 +49,30 @@ export default function SellerNotificationsScreen() {
   useFocusEffect(useCallback(() => { fetchNotifs(); }, [fetchNotifs]));
 
   const handleRefresh = useCallback(async () => {
-    setRefreshing(true); await fetchNotifs(); setRefreshing(false);
+    setRefreshing(true);
+    await fetchNotifs();
+    setRefreshing(false);
   }, [fetchNotifs]);
 
   const handlePress = async (n: Notification) => {
     if (!n.isRead) {
       await markAsRead(n.id);
-      setNotifications((prev) => prev.map((x) => x.id === n.id ? { ...x, isRead: true } : x));
+      setNotifications((prev) =>
+        prev.map((x) => x.id === n.id ? { ...x, isRead: true } : x)
+      );
     }
   };
 
   const handleDelete = (id: string) => {
     Alert.alert('Delete Notification', 'Remove this notification?', [
       { text: 'Cancel', style: 'cancel' },
-      { text: 'Delete', style: 'destructive', onPress: async () => {
-        await deleteNotification(id);
-        setNotifications((prev) => prev.filter((n) => n.id !== id));
-      }},
+      {
+        text: 'Delete', style: 'destructive',
+        onPress: async () => {
+          await deleteNotification(id);
+          setNotifications((prev) => prev.filter((n) => n.id !== id));
+        },
+      },
     ]);
   };
 
@@ -61,18 +84,101 @@ export default function SellerNotificationsScreen() {
 
   const unread = notifications.filter((n) => !n.isRead).length;
 
+  const renderItem = ({ item, index }: { item: Notification; index: number }) => {
+    const meta = getMeta((item as any).type);
+    return (
+      <Pressable
+        style={({ pressed }) => [
+          styles.item,
+          !item.isRead && styles.itemUnread,
+          pressed && styles.itemPressed,
+        ]}
+        onPress={() => handlePress(item)}
+        onLongPress={() => handleDelete(item.id)}
+      >
+        {/* Icon pill */}
+        <View style={[styles.iconWrap, { backgroundColor: meta.bg }]}>
+          <Text style={styles.iconText}>{meta.icon}</Text>
+          {!item.isRead && (
+            <View style={[styles.unreadDot, { backgroundColor: meta.accent }]} />
+          )}
+        </View>
+
+        {/* Body */}
+        <View style={styles.itemBody}>
+          <Text
+            style={[styles.itemMessage, item.isRead && styles.itemMessageRead]}
+            numberOfLines={3}
+          >
+            {item.message}
+          </Text>
+          <View style={styles.itemFooter}>
+            <Text style={styles.itemTime}>{timeAgo(item.createdAt)}</Text>
+            {!item.isRead && (
+              <View style={[styles.newBadge, { backgroundColor: meta.accent }]}>
+                <Text style={styles.newBadgeText}>New</Text>
+              </View>
+            )}
+          </View>
+        </View>
+
+        {/* Delete hint on right */}
+        <Pressable
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          onPress={() => handleDelete(item.id)}
+          style={styles.deleteBtn}
+        >
+          <Text style={styles.deleteBtnText}>✕</Text>
+        </Pressable>
+      </Pressable>
+    );
+  };
+
   return (
     <View style={styles.container}>
+      {/* ── Header ── */}
       <View style={styles.header}>
-        <Text style={styles.title}>
-          Notifications{unread > 0 ? ` (${unread})` : ''}
-        </Text>
-        {unread > 0 && (
-          <Pressable style={styles.markAllBtn} onPress={handleMarkAll}>
+        <Pressable
+          style={({ pressed }) => [styles.backBtn, pressed && { opacity: 0.6 }]}
+          onPress={() => navigation.goBack()}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+        >
+          <Text style={styles.backBtnText}>‹</Text>
+        </Pressable>
+
+        <View style={styles.headerCenter}>
+          <Text style={styles.title}>Notifications</Text>
+          {unread > 0 && (
+            <View style={styles.unreadCountBadge}>
+              <Text style={styles.unreadCountText}>
+                {unread > 99 ? '99+' : unread}
+              </Text>
+            </View>
+          )}
+        </View>
+
+        {unread > 0 ? (
+          <Pressable
+            style={({ pressed }) => [styles.markAllBtn, pressed && { opacity: 0.6 }]}
+            onPress={handleMarkAll}
+          >
             <Text style={styles.markAllText}>Mark all read</Text>
           </Pressable>
+        ) : (
+          <View style={styles.markAllBtn} />
         )}
       </View>
+
+      {/* ── Summary bar ── */}
+      {notifications.length > 0 && (
+        <View style={styles.summaryBar}>
+          <Text style={styles.summaryText}>
+            {notifications.length} notification{notifications.length !== 1 ? 's' : ''}
+            {unread > 0 ? ` · ${unread} unread` : ' · all read'}
+          </Text>
+          <Text style={styles.summaryHint}>Long press to delete</Text>
+        </View>
+      )}
 
       <FlatList
         data={notifications}
@@ -80,27 +186,20 @@ export default function SellerNotificationsScreen() {
         contentContainerStyle={styles.list}
         style={{ flex: 1 }}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} colors={[COLORS.secondary]} tintColor={COLORS.secondary} />
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={handleRefresh}
+            colors={['#F97316']}
+            tintColor="#F97316"
+          />
         }
-        renderItem={({ item }) => (
-          <Pressable
-            style={({ pressed }) => [styles.item, !item.isRead && styles.itemUnread, pressed && styles.itemPressed]}
-            onPress={() => handlePress(item)}
-            onLongPress={() => handleDelete(item.id)}
-          >
-            <View style={[styles.indicator, item.isRead && styles.indicatorRead]} />
-            <View style={styles.itemBody}>
-              <Text style={[styles.itemMessage, item.isRead && styles.itemMessageRead]}>
-                {item.message}
-              </Text>
-              <Text style={styles.itemTime}>{timeAgo(item.createdAt)}</Text>
-            </View>
-          </Pressable>
-        )}
+        renderItem={renderItem}
         ListEmptyComponent={
           <View style={styles.emptyWrap}>
-            <Text style={styles.emptyIcon}>◻</Text>
-            <Text style={styles.emptyTitle}>No notifications</Text>
+            <View style={styles.emptyIconWrap}>
+              <Text style={styles.emptyIcon}>🔔</Text>
+            </View>
+            <Text style={styles.emptyTitle}>All caught up!</Text>
             <Text style={styles.emptyText}>New order alerts will appear here</Text>
           </View>
         }

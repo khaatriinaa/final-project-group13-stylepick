@@ -10,10 +10,10 @@ import { SellerProductsScreenProps, SellerStackParamList } from '../../../props/
 import { Product } from '../../../types';
 import { getMyProducts, archiveProduct, updateProduct } from '../../../services/productService';
 import { useAuth } from '../../../context/AuthContext';
-import { COLORS } from '../../../theme';
 import { styles } from './SellerProductsScreen.styles';
 
 type StatusFilter = 'All' | 'Active' | 'Archived';
+type ViewMode = 'list' | 'grid';
 
 export default function SellerProductsScreen({ navigation }: SellerProductsScreenProps) {
   const { user } = useAuth();
@@ -26,6 +26,7 @@ export default function SellerProductsScreen({ navigation }: SellerProductsScree
   const [categoryFilter, setCategoryFilter]         = useState<string>('All');
   const [showStatusPicker, setShowStatusPicker]     = useState(false);
   const [showCategoryPicker, setShowCategoryPicker] = useState(false);
+  const [viewMode, setViewMode]                     = useState<ViewMode>('list');
   const [toast, setToast]                           = useState<string | null>(null);
 
   const fetchProducts = useCallback(async () => {
@@ -81,12 +82,17 @@ export default function SellerProductsScreen({ navigation }: SellerProductsScree
     return matchSearch && matchStatus && matchCategory;
   });
 
-  const renderProduct = ({ item }: { item: Product }) => (
+  const closeDropdowns = () => {
+    setShowStatusPicker(false);
+    setShowCategoryPicker(false);
+  };
+
+  // ── List (row) card ───────────────────────────────────────────────────────
+  const renderListProduct = ({ item }: { item: Product }) => (
     <Pressable
       style={({ pressed }) => [styles.productCard, pressed && styles.productCardPressed]}
-      onPress={() => stackNav.navigate('AddProduct', { productId: item.id })}
+      onPress={() => { closeDropdowns(); stackNav.navigate('AddProduct', { productId: item.id }); }}
     >
-      {/* Thumbnail */}
       <View style={styles.imageWrap}>
         {item.images?.[0] ? (
           <Image source={{ uri: item.images[0] }} style={styles.imageActual} resizeMode="cover" />
@@ -97,21 +103,16 @@ export default function SellerProductsScreen({ navigation }: SellerProductsScree
         )}
       </View>
 
-      {/* Info */}
       <View style={styles.info}>
-        {/* Status badge */}
         <View style={[styles.statusBadge, item.isArchived ? styles.statusBadgeArchived : styles.statusBadgeActive]}>
           <View style={[styles.statusDot, item.isArchived ? styles.statusDotArchived : styles.statusDotActive]} />
           <Text style={[styles.statusBadgeText, item.isArchived ? styles.statusBadgeTextArchived : styles.statusBadgeTextActive]}>
             {item.isArchived ? 'Archived' : 'Active'}
           </Text>
         </View>
-
         <Text style={styles.productName} numberOfLines={2}>{item.name}</Text>
-
         <View style={styles.priceRow}>
           <Text style={styles.productPrice}>₱{item.price.toLocaleString()}</Text>
-
           {item.colors && item.colors.length > 0 && (
             <>
               <Text style={styles.dotSeparator}>·</Text>
@@ -119,23 +120,29 @@ export default function SellerProductsScreen({ navigation }: SellerProductsScree
               <Text style={styles.colorLabel}>{item.colors[0]}</Text>
             </>
           )}
-
           <Text style={styles.dotSeparator}>·</Text>
           <Text style={styles.stockText}>{item.stock} stocks</Text>
         </View>
       </View>
 
-      {/* Actions */}
       <View style={styles.actions}>
         <Pressable
           style={({ pressed }) => [styles.actionBtn, pressed && { opacity: 0.7 }]}
-          onPress={() => stackNav.navigate('AddProduct', { productId: item.id })}
+          onPress={(e) => {
+            e.stopPropagation();
+            closeDropdowns();
+            stackNav.navigate('AddProduct', { productId: item.id });
+          }}
         >
           <Text style={styles.actionBtnText}>✎</Text>
         </Pressable>
         <Pressable
           style={({ pressed }) => [styles.actionBtn, pressed && { opacity: 0.7 }]}
-          onPress={() => handleArchiveToggle(item)}
+          onPress={(e) => {
+            e.stopPropagation();
+            closeDropdowns();
+            handleArchiveToggle(item);
+          }}
         >
           <Text style={styles.actionBtnText}>{item.isArchived ? '↩' : '⊗'}</Text>
         </Pressable>
@@ -143,24 +150,78 @@ export default function SellerProductsScreen({ navigation }: SellerProductsScree
     </Pressable>
   );
 
+  // ── Grid (square) card ────────────────────────────────────────────────────
+  const renderGridProduct = ({ item }: { item: Product }) => (
+    <Pressable
+      style={({ pressed }) => [styles.gridCard, pressed && styles.gridCardPressed]}
+      onPress={() => { closeDropdowns(); stackNav.navigate('AddProduct', { productId: item.id }); }}
+    >
+      <View style={styles.gridImageWrap}>
+        {item.images?.[0] ? (
+          <Image source={{ uri: item.images[0] }} style={styles.gridImageActual} resizeMode="cover" />
+        ) : (
+          <View style={styles.gridImagePlaceholder}>
+            <Text style={styles.gridImagePlaceholderText}>📦</Text>
+          </View>
+        )}
+      </View>
+
+      <View style={styles.gridInfo}>
+        <View style={[styles.statusBadge, item.isArchived ? styles.statusBadgeArchived : styles.statusBadgeActive]}>
+          <View style={[styles.statusDot, item.isArchived ? styles.statusDotArchived : styles.statusDotActive]} />
+          <Text style={[styles.statusBadgeText, item.isArchived ? styles.statusBadgeTextArchived : styles.statusBadgeTextActive]}>
+            {item.isArchived ? 'Archived' : 'Active'}
+          </Text>
+        </View>
+        <Text style={styles.gridProductName} numberOfLines={2}>{item.name}</Text>
+        <Text style={styles.gridProductPrice}>₱{item.price.toLocaleString()}</Text>
+        <Text style={styles.gridStockText}>{item.stock} stocks</Text>
+      </View>
+
+      <View style={styles.gridActions}>
+        <Pressable
+          style={({ pressed }) => [styles.gridActionBtn, pressed && { opacity: 0.7 }]}
+          onPress={(e) => {
+            e.stopPropagation();
+            closeDropdowns();
+            stackNav.navigate('AddProduct', { productId: item.id });
+          }}
+        >
+          <Text style={styles.gridActionBtnText}>✎</Text>
+        </Pressable>
+        <Pressable
+          style={({ pressed }) => [styles.gridActionBtn, pressed && { opacity: 0.7 }]}
+          onPress={(e) => {
+            e.stopPropagation();
+            closeDropdowns();
+            handleArchiveToggle(item);
+          }}
+        >
+          <Text style={styles.gridActionBtnText}>{item.isArchived ? '↩' : '⊗'}</Text>
+        </Pressable>
+      </View>
+    </Pressable>
+  );
+
+  const emptyComponent = (
+    <View style={styles.emptyWrap}>
+      <Text style={styles.emptyIcon}>📦</Text>
+      <Text style={styles.emptyTitle}>No products yet</Text>
+      <Text style={styles.emptyText}>Tap "+" in the tab bar to add a listing</Text>
+    </View>
+  );
+
   return (
-    <View style={styles.container}>
+    <Pressable style={styles.container} onPress={closeDropdowns}>
       {/* Header */}
       <View style={styles.header}>
         <Text style={styles.title}>Products</Text>
-        <View style={styles.headerRight}>
-          <Pressable
-            style={styles.iconBtn}
-            onPress={() => stackNav.navigate('SellerNotifications')}
-          >
-            <Text style={styles.iconBtnText}>🔔</Text>
-          </Pressable>
-          <View style={styles.avatar}>
-            <Text style={styles.avatarText}>
-              {user?.name?.slice(0, 3).toUpperCase() ?? 'ME'}
-            </Text>
-          </View>
-        </View>
+        <Pressable
+          style={styles.iconBtn}
+          onPress={() => { closeDropdowns(); stackNav.navigate('SellerNotifications'); }}
+        >
+          <Text style={styles.iconBtnText}>🔔</Text>
+        </Pressable>
       </View>
 
       {/* Search row */}
@@ -173,13 +234,29 @@ export default function SellerProductsScreen({ navigation }: SellerProductsScree
             placeholderTextColor="#AAAAAA"
             value={search}
             onChangeText={setSearch}
+            onFocus={closeDropdowns}
           />
+          {search.length > 0 && (
+            <Pressable onPress={() => setSearch('')}>
+              <Text style={{ fontSize: 16, color: '#AAAAAA' }}>✕</Text>
+            </Pressable>
+          )}
         </View>
-        <Pressable style={styles.iconSquare}>
-          <Text style={styles.iconSquareText}>⧉</Text>
-        </Pressable>
-        <Pressable style={styles.iconSquare}>
+
+        {/* Grid view button — active when viewMode is 'grid' */}
+        <Pressable
+          style={[styles.iconSquare, viewMode === 'grid' && styles.iconSquareActive]}
+          onPress={() => { closeDropdowns(); setViewMode('grid'); }}
+        >
           <Text style={styles.iconSquareText}>⊞</Text>
+        </Pressable>
+
+        {/* List view button — active when viewMode is 'list' */}
+        <Pressable
+          style={[styles.iconSquare, viewMode === 'list' && styles.iconSquareActive]}
+          onPress={() => { closeDropdowns(); setViewMode('list'); }}
+        >
+          <Text style={styles.iconSquareText}>☰</Text>
         </Pressable>
       </View>
 
@@ -192,7 +269,7 @@ export default function SellerProductsScreen({ navigation }: SellerProductsScree
           <Text style={styles.filterChipText}>
             Status{statusFilter !== 'All' ? ` · ${statusFilter}` : ''}
           </Text>
-          <Text style={styles.filterChipCaret}>▾</Text>
+          <Text style={styles.filterChipCaret}>{showStatusPicker ? '▴' : '▾'}</Text>
         </Pressable>
 
         <Pressable
@@ -202,66 +279,90 @@ export default function SellerProductsScreen({ navigation }: SellerProductsScree
           <Text style={styles.filterChipText}>
             Category{categoryFilter !== 'All' ? ` · ${categoryFilter}` : ''}
           </Text>
-          <Text style={styles.filterChipCaret}>▾</Text>
+          <Text style={styles.filterChipCaret}>{showCategoryPicker ? '▴' : '▾'}</Text>
         </Pressable>
+
+        {(statusFilter !== 'All' || categoryFilter !== 'All') && (
+          <Pressable
+            style={styles.clearChip}
+            onPress={() => { setStatusFilter('All'); setCategoryFilter('All'); }}
+          >
+            <Text style={styles.clearChipText}>Clear ✕</Text>
+          </Pressable>
+        )}
       </View>
 
       {/* Dropdowns */}
       {showStatusPicker && (
-        <View style={styles.dropdown}>
-          {(['All', 'Active', 'Archived'] as StatusFilter[]).map(s => (
-            <TouchableOpacity
-              key={s}
-              style={[styles.dropdownItem, statusFilter === s && styles.dropdownItemActive]}
-              onPress={() => { setStatusFilter(s); setShowStatusPicker(false); }}
-            >
-              <Text style={[styles.dropdownItemText, statusFilter === s && styles.dropdownItemTextActive]}>
-                {s}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </View>
+        <Pressable onPress={(e) => e.stopPropagation()}>
+          <View style={styles.dropdown}>
+            {(['All', 'Active', 'Archived'] as StatusFilter[]).map(s => (
+              <TouchableOpacity
+                key={s}
+                style={[styles.dropdownItem, statusFilter === s && styles.dropdownItemActive]}
+                onPress={() => { setStatusFilter(s); setShowStatusPicker(false); }}
+              >
+                <Text style={[styles.dropdownItemText, statusFilter === s && styles.dropdownItemTextActive]}>
+                  {s}
+                </Text>
+                {statusFilter === s && <Text style={{ color: '#F97316', fontSize: 12 }}>✓</Text>}
+              </TouchableOpacity>
+            ))}
+          </View>
+        </Pressable>
       )}
 
       {showCategoryPicker && (
-        <View style={[styles.dropdown, { left: 130 }]}>
-          {categories.map(c => (
-            <TouchableOpacity
-              key={c}
-              style={[styles.dropdownItem, categoryFilter === c && styles.dropdownItemActive]}
-              onPress={() => { setCategoryFilter(c); setShowCategoryPicker(false); }}
-            >
-              <Text style={[styles.dropdownItemText, categoryFilter === c && styles.dropdownItemTextActive]}>
-                {c}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </View>
+        <Pressable onPress={(e) => e.stopPropagation()}>
+          <View style={[styles.dropdown, { left: 130 }]}>
+            {categories.map(c => (
+              <TouchableOpacity
+                key={c}
+                style={[styles.dropdownItem, categoryFilter === c && styles.dropdownItemActive]}
+                onPress={() => { setCategoryFilter(c); setShowCategoryPicker(false); }}
+              >
+                <Text style={[styles.dropdownItemText, categoryFilter === c && styles.dropdownItemTextActive]}>
+                  {c}
+                </Text>
+                {categoryFilter === c && <Text style={{ color: '#F97316', fontSize: 12 }}>✓</Text>}
+              </TouchableOpacity>
+            ))}
+          </View>
+        </Pressable>
       )}
 
-      {/* Product list */}
-      <FlatList
-        data={filtered}
-        keyExtractor={(item) => item.id}
-        contentContainerStyle={styles.list}
-        style={{ flex: 1 }}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={handleRefresh}
-            colors={['#F97316']}
-            tintColor="#F97316"
-          />
-        }
-        renderItem={renderProduct}
-        ListEmptyComponent={
-          <View style={styles.emptyWrap}>
-            <Text style={styles.emptyIcon}>📦</Text>
-            <Text style={styles.emptyTitle}>No products yet</Text>
-            <Text style={styles.emptyText}>Tap "+" in the tab bar to add a listing</Text>
-          </View>
-        }
-      />
+      {/* Product list — switches between list and grid */}
+      {viewMode === 'list' ? (
+        <FlatList
+          key="list"
+          data={filtered}
+          keyExtractor={(item) => item.id}
+          contentContainerStyle={styles.list}
+          style={{ flex: 1 }}
+          onScrollBeginDrag={closeDropdowns}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} colors={['#F97316']} tintColor="#F97316" />
+          }
+          renderItem={renderListProduct}
+          ListEmptyComponent={emptyComponent}
+        />
+      ) : (
+        <FlatList
+          key="grid"
+          data={filtered}
+          keyExtractor={(item) => item.id}
+          numColumns={2}
+          contentContainerStyle={styles.gridList}
+          columnWrapperStyle={styles.gridColumnWrapper}
+          style={{ flex: 1 }}
+          onScrollBeginDrag={closeDropdowns}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} colors={['#F97316']} tintColor="#F97316" />
+          }
+          renderItem={renderGridProduct}
+          ListEmptyComponent={emptyComponent}
+        />
+      )}
 
       {/* Toast */}
       {toast && (
@@ -275,6 +376,6 @@ export default function SellerProductsScreen({ navigation }: SellerProductsScree
           </Pressable>
         </View>
       )}
-    </View>
+    </Pressable>
   );
 }
