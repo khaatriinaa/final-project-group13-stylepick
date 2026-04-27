@@ -1,3 +1,5 @@
+// src/services/orderService.ts
+
 import { Storage } from '../storage/storage';
 import { KEYS } from '../storage/keys';
 import { Order, OrderStatus, CartItem } from '../types';
@@ -12,17 +14,35 @@ import { supabase } from './supabaseClient';
 
 const generateId = () => Math.random().toString(36).slice(2) + Date.now().toString(36);
 
+// ─── Supabase row → Order ─────────────────────────────────────────────────────
+// orders table stores items as jsonb, so no join needed
+const mapRow = (row: any): Order => ({
+  id:              row.id,
+  buyerId:         row.buyer_id,
+  sellerId:        row.seller_id,
+  items:           row.items ?? [],           // ← jsonb column, already parsed
+  status:          row.status        as OrderStatus,
+  paymentStatus:   row.payment_status as any,
+  paymentMethod:   row.payment_method as any,
+  shippingAddress: row.shipping_address ?? '',
+  buyerName:       row.buyer_name    ?? undefined,
+  buyerPhone:      row.buyer_phone   ?? undefined,
+  totalAmount:     Number(row.total_amount),
+  createdAt:       row.created_at,
+  updatedAt:       row.updated_at,
+});
+
 // ─── READ: Buyer's orders ─────────────────────────────────────────────────────
 
 export const getMyOrdersAsBuyer = async (buyerId: string): Promise<Order[]> => {
   try {
     const { data, error } = await supabase
       .from('orders')
-      .select('*, order_items(*, products(*))')
+      .select('*')                            // ← simple select, no join
       .eq('buyer_id', buyerId)
       .order('created_at', { ascending: false });
     if (error) throw error;
-    if (data && data.length > 0) return data as unknown as Order[];
+    if (data && data.length > 0) return data.map(mapRow);
   } catch (supabaseError) {
     console.warn('Supabase getMyOrdersAsBuyer error (falling back to local):', supabaseError);
   }
@@ -39,11 +59,11 @@ export const getMyOrdersAsSeller = async (sellerId: string): Promise<Order[]> =>
   try {
     const { data, error } = await supabase
       .from('orders')
-      .select('*, order_items(*, products(*))')
+      .select('*')                            // ← simple select, no join
       .eq('seller_id', sellerId)
       .order('created_at', { ascending: false });
     if (error) throw error;
-    if (data && data.length > 0) return data as unknown as Order[];
+    if (data && data.length > 0) return data.map(mapRow);
   } catch (supabaseError) {
     console.warn('Supabase getMyOrdersAsSeller error (falling back to local):', supabaseError);
   }
@@ -60,11 +80,11 @@ export const getOrderById = async (orderId: string): Promise<Order | null> => {
   try {
     const { data, error } = await supabase
       .from('orders')
-      .select('*, order_items(*, products(*))')
+      .select('*')                            // ← simple select, no join
       .eq('id', orderId)
       .single();
     if (error) throw error;
-    if (data) return data as unknown as Order;
+    if (data) return mapRow(data);
   } catch (err) {
     console.warn('Supabase getOrderById error (falling back to local):', err);
   }
@@ -92,8 +112,8 @@ export type PlaceOrderPayload = {
   sellerId:        string;
   items:           CartItem[];
   shippingAddress: string;
-  buyerName?:      string;  // ← ADDED
-  buyerPhone?:     string;  // ← ADDED
+  buyerName?:      string;
+  buyerPhone?:     string;
 };
 
 export const placeOrder = async (payload: PlaceOrderPayload): Promise<Order> => {
@@ -113,8 +133,8 @@ export const placeOrder = async (payload: PlaceOrderPayload): Promise<Order> => 
     paymentStatus:   'pending',
     paymentMethod:   'COD',
     shippingAddress: payload.shippingAddress,
-    buyerName:       payload.buyerName,   // ← ADDED
-    buyerPhone:      payload.buyerPhone,  // ← ADDED
+    buyerName:       payload.buyerName,
+    buyerPhone:      payload.buyerPhone,
     totalAmount,
     createdAt:       now,
     updatedAt:       now,
@@ -135,34 +155,29 @@ export const placeOrder = async (payload: PlaceOrderPayload): Promise<Order> => 
   await notifyOrderPlaced(newOrder.id, totalAmount);
   await notifyNewOrder(newOrder.id, totalAmount);
 
-  // ─── Supabase ─────────────────────────────────────────────────────────────
+  // ─── Supabase: insert order with items as jsonb ───────────────────────────
   try {
     const { error: orderError } = await supabase.from('orders').insert({
       id:               newOrder.id,
       buyer_id:         newOrder.buyerId,
       seller_id:        newOrder.sellerId,
+      items:            newOrder.items,       // ← store full items array as jsonb
       status:           newOrder.status,
       payment_status:   newOrder.paymentStatus,
       payment_method:   newOrder.paymentMethod,
       shipping_address: newOrder.shippingAddress,
+      buyer_name:       newOrder.buyerName  ?? null,
+      buyer_phone:      newOrder.buyerPhone ?? null,
       total_amount:     newOrder.totalAmount,
       created_at:       newOrder.createdAt,
       updated_at:       newOrder.updatedAt,
-      // buyer_name and buyer_phone intentionally omitted until DB column is added
     });
     if (orderError) throw orderError;
-
-    const orderItems = payload.items.map((item) => ({
-      order_id:   newOrder.id,
-      product_id: item.product.id,
-      quantity:   item.quantity,
-      price:      item.product.price,
-    }));
-    const { error: itemsError } = await supabase.from('order_items').insert(orderItems);
-    if (itemsError) throw itemsError;
+    console.log('Order saved to Supabase:', newOrder.id); // ✅ DEBUG
   } catch (supabaseError) {
     console.warn('Supabase placeOrder error (local save succeeded):', supabaseError);
   }
+  // ─────────────────────────────────────────────────────────────────────────
 
   return newOrder;
 };
@@ -227,9 +242,11 @@ export const updateOrderStatus = async (
       .update(supabaseUpdates)
       .eq('id', orderId);
     if (error) throw error;
+    console.log('Order status updated in Supabase:', orderId, newStatus); // ✅ DEBUG
   } catch (supabaseError) {
     console.warn('Supabase updateOrderStatus error (local update succeeded):', supabaseError);
   }
+  // ─────────────────────────────────────────────────────────────────────────
 };
 
 // ─── UPDATE: Buyer cancels a pending order ────────────────────────────────────
@@ -265,7 +282,9 @@ export const cancelOrder = async (orderId: string, sellerId: string): Promise<vo
       })
       .eq('id', orderId);
     if (error) throw error;
+    console.log('Order cancelled in Supabase:', orderId); // ✅ DEBUG
   } catch (supabaseError) {
     console.warn('Supabase cancelOrder error (local update succeeded):', supabaseError);
   }
+  // ─────────────────────────────────────────────────────────────────────────
 };
