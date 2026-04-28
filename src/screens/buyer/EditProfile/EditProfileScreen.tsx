@@ -1,5 +1,5 @@
 // src/screens/buyer/EditProfile/EditProfileScreen.tsx
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View, Text, TextInput, ScrollView, Pressable,
   Alert, ActivityIndicator, StyleSheet, KeyboardAvoidingView,
@@ -9,6 +9,7 @@ import { Formik } from 'formik';
 import * as Yup from 'yup';
 import { useAuth } from '../../../context/AuthContext';
 import { COLORS, FONTS, RADIUS } from '../../../theme';
+import { supabase } from '../../../services/supabaseClient';
 
 const Schema = Yup.object().shape({
   name:    Yup.string().min(2, 'Name must be at least 2 characters').required('Full name is required'),
@@ -19,10 +20,55 @@ const Schema = Yup.object().shape({
 export default function EditProfileScreen({ navigation }: any) {
   const { user, updateProfile } = useAuth();
   const [loading, setLoading] = useState(false);
+  const [initialValues, setInitialValues] = useState({
+    name: user?.name ?? '',
+    phone: user?.phone ?? '',
+    address: user?.address ?? '',
+  });
+
+  // Load buyer profile from Supabase on mount
+  useEffect(() => {
+    const fetchProfile = async () => {
+      const { data: { user: authUser } } = await supabase.auth.getUser();
+      if (!authUser) return;
+
+      const { data, error } = await supabase
+        .from('buyer_profiles')
+        .select('full_name, phone_number, delivery_address')
+        .eq('id', authUser.id)
+        .single();
+
+      if (data) {
+        setInitialValues({
+          name: data.full_name ?? user?.name ?? '',
+          phone: data.phone_number ?? user?.phone ?? '',
+          address: data.delivery_address ?? user?.address ?? '',
+        });
+      }
+    };
+
+    fetchProfile();
+  }, []);
 
   const handleSave = async (values: { name: string; phone: string; address: string }) => {
     setLoading(true);
     try {
+      // Upsert to buyer_profiles in Supabase
+      const { data: { user: authUser } } = await supabase.auth.getUser();
+      if (authUser) {
+        const { error: upsertError } = await supabase
+          .from('buyer_profiles')
+          .upsert({
+            id: authUser.id,
+            full_name: values.name,
+            email: authUser.email,
+            phone_number: values.phone || null,
+            delivery_address: values.address || null,
+          });
+
+        if (upsertError) throw new Error(upsertError.message);
+      }
+
       await updateProfile({ name: values.name, phone: values.phone || undefined, address: values.address || undefined });
       Alert.alert('Success', 'Profile updated successfully.', [{ text: 'OK', onPress: () => navigation.goBack() }]);
     } catch (err: any) {
@@ -54,7 +100,8 @@ export default function EditProfileScreen({ navigation }: any) {
             </View>
 
             <Formik
-              initialValues={{ name: user?.name ?? '', phone: user?.phone ?? '', address: user?.address ?? '' }}
+              initialValues={initialValues}
+              enableReinitialize
               validationSchema={Schema} onSubmit={handleSave}
             >
               {({ handleChange, handleBlur, handleSubmit, values, errors, touched }) => (
