@@ -13,53 +13,12 @@ import {
   Alert,
   ActivityIndicator,
 } from 'react-native';
-import Svg, { Polygon, Circle, Line } from 'react-native-svg';
 import { Formik } from 'formik';
 import * as Yup from 'yup';
 import { LoginScreenProps } from '../../../props/props';
 import { login } from '../../../services/authService';
 import { useAuth } from '../../../context/AuthContext';
 import { styles } from './LoginScreen.styles';
-
-// ─── Decorative Diamond ───────────────────────────────────────────────────────
-function HeroDiamond() {
-  return (
-    <Svg width={80} height={56} viewBox="0 0 80 56" fill="none">
-      {/* Outer diamond */}
-      <Polygon
-        points="40,3 77,28 40,53 3,28"
-        fill="none"
-        stroke="#c9a96e"
-        strokeWidth={0.6}
-        opacity={0.35}
-      />
-      {/* Middle diamond */}
-      <Polygon
-        points="40,11 65,28 40,45 15,28"
-        fill="none"
-        stroke="#c9a96e"
-        strokeWidth={0.5}
-        opacity={0.2}
-      />
-      {/* Inner diamond */}
-      <Polygon
-        points="40,18 56,28 40,38 24,28"
-        fill="none"
-        stroke="#c9a96e"
-        strokeWidth={0.4}
-        opacity={0.15}
-      />
-      {/* Corner tick marks */}
-      <Line x1="40" y1="3" x2="40" y2="0" stroke="#c9a96e" strokeWidth={0.6} opacity={0.5} />
-      <Line x1="40" y1="53" x2="40" y2="56" stroke="#c9a96e" strokeWidth={0.6} opacity={0.5} />
-      <Line x1="3" y1="28" x2="0" y2="28" stroke="#c9a96e" strokeWidth={0.6} opacity={0.5} />
-      <Line x1="77" y1="28" x2="80" y2="28" stroke="#c9a96e" strokeWidth={0.6} opacity={0.5} />
-      {/* Centre gem */}
-      <Circle cx={40} cy={28} r={2.5} fill="#c9a96e" opacity={0.75} />
-      <Circle cx={40} cy={28} r={4.5} fill="none" stroke="#c9a96e" strokeWidth={0.4} opacity={0.3} />
-    </Svg>
-  );
-}
 
 // ─── Validation ───────────────────────────────────────────────────────────────
 const Schema = Yup.object().shape({
@@ -109,14 +68,13 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
 
             {/* ── Hero ──────────────────────────────────────────────── */}
             <View style={styles.hero}>
-              {/* Soft ambient glow behind diamond */}
               <View style={styles.heroGlow} />
-
-              <View style={styles.heroDiamond}>
-                <HeroDiamond />
-              </View>
+              <View style={styles.heroAccentDot} />
 
               <View style={styles.brand}>
+                <View style={styles.brandMark}>
+                  <Text style={styles.brandMarkText}>S</Text>
+                </View>
                 <Text style={styles.brandName}>StylePick</Text>
                 <View style={styles.brandRule} />
                 <Text style={styles.brandSub}>Curated fashion for you</Text>
@@ -126,7 +84,6 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
             {/* ── Body ──────────────────────────────────────────────── */}
             <View style={styles.body}>
 
-              {/* Form header */}
               <View style={styles.formHeader}>
                 <Text style={styles.formEyebrow}>Member access</Text>
                 <Text style={styles.formTitle}>Welcome back!</Text>
@@ -153,7 +110,7 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
                         <TextInput
                           style={styles.input}
                           placeholder="your@email.com"
-                          placeholderTextColor="#c4bbb0"
+                          placeholderTextColor="#B8B4C0"
                           keyboardType="email-address"
                           autoCapitalize="none"
                           autoCorrect={false}
@@ -179,17 +136,14 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
                         <TextInput
                           style={styles.input}
                           placeholder="••••••••"
-                          placeholderTextColor="#c4bbb0"
+                          placeholderTextColor="#B8B4C0"
                           secureTextEntry={!showPass}
                           onChangeText={handleChange('password')}
                           onBlur={() => { handleBlur('password'); setFocusedField(null); }}
                           onFocus={() => setFocusedField('password')}
                           value={values.password}
                         />
-                        <Pressable
-                          onPress={() => setShowPass(v => !v)}
-                          hitSlop={10}
-                        >
+                        <Pressable onPress={() => setShowPass(v => !v)} hitSlop={10}>
                           <Text style={styles.showHideText}>
                             {showPass ? 'Hide' : 'Show'}
                           </Text>
@@ -210,7 +164,7 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
                       disabled={loading}
                     >
                       {loading
-                        ? <ActivityIndicator color="#ede5d4" size="small" />
+                        ? <ActivityIndicator color="#FFFFFF" size="small" />
                         : <Text style={styles.submitBtnText}>Sign In</Text>
                       }
                     </Pressable>
