@@ -4,6 +4,7 @@ import {
   View, Text, FlatList, Pressable, RefreshControl,
   TextInput, Image, Animated, TouchableWithoutFeedback, Modal, ScrollView,
 } from 'react-native';
+import Svg, { Path, Circle, Rect } from 'react-native-svg';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { BuyerHomeScreenProps, BuyerStackParamList } from '../../../props/props';
@@ -12,8 +13,7 @@ import { getProducts } from '../../../services/productService';
 import { useCart } from '../../../context/CartContext';
 import { useAuth } from '../../../context/AuthContext';
 import { useFavorites } from '../../../context/FavoritesContext';
-import { FASHION_CATEGORIES } from '../../../theme';
-import { styles } from './BuyerHomeScreen.styles';
+import { styles, C } from './BuyerHomeScreen.styles';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -30,39 +30,148 @@ const SORT_OPTIONS: { key: SortKey; label: string }[] = [
 ];
 
 const PRIMARY_TABS: PrimaryTab[] = ['All', 'Women', 'Curve', 'Men', 'Kids'];
+const SUB_TABS: SubTab[] = ['For You', 'New In', 'Deals', 'Bestsellers'];
 
-const SUB_TABS: { key: SubTab; icon: string }[] = [
-  { key: 'For You',     icon: '⭐' },
-  { key: 'New In',      icon: '✨' },
-  { key: 'Deals',       icon: '🏷️' },
-  { key: 'Bestsellers', icon: '🏅' },
-];
-
-// Category circles with emoji icons
 const CAT_CIRCLES = [
-  { label: 'Women',     emoji: '👗' },
-  { label: 'Curve',     emoji: '🌸' },
-  { label: 'Kids',      emoji: '🧒' },
-  { label: 'Men',       emoji: '👔' },
-  { label: 'Sports',    emoji: '🏃' },
-  { label: 'Jewelry',   emoji: '💎' },
-  { label: 'Tops',      emoji: '👕' },
-  { label: 'Baby',      emoji: '🍼' },
-  { label: 'Beach',     emoji: '👙' },
-  { label: 'Shoes',     emoji: '👠' },
+  { label: 'Women',   emoji: '👗' },
+  { label: 'Curve',   emoji: '🌸' },
+  { label: 'Kids',    emoji: '🧒' },
+  { label: 'Men',     emoji: '👔' },
+  { label: 'Sports',  emoji: '🏃' },
+  { label: 'Jewelry', emoji: '💎' },
+  { label: 'Tops',    emoji: '👕' },
+  { label: 'Baby',    emoji: '🍼' },
+  { label: 'Beach',   emoji: '👙' },
+  { label: 'Shoes',   emoji: '👠' },
 ];
+
+// ─── SVG Icons ────────────────────────────────────────────────────────────────
+
+function BellIcon({ size = 20, color = '#fff' }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"
+        stroke={color} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round"
+      />
+      <Path
+        d="M13.73 21a2 2 0 0 1-3.46 0"
+        stroke={color} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}
+
+function CartIcon({ size = 20, color = '#fff' }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"
+        stroke={color} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round"
+      />
+      <Path d="M3 6h18" stroke={color} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" />
+      <Path
+        d="M16 10a4 4 0 0 1-8 0"
+        stroke={color} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}
+
+function SearchIcon({ size = 14, color = '#B8B4C0' }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Circle cx="11" cy="11" r="8" stroke={color} strokeWidth={2} />
+      <Path d="M21 21l-4.35-4.35" stroke={color} strokeWidth={2} strokeLinecap="round" />
+    </Svg>
+  );
+}
+
+function HeartIcon({ size = 14, filled = false, color = '#9B95A5' }: { size?: number; filled?: boolean; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill={filled ? color : 'none'}>
+      <Path
+        d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"
+        stroke={color} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round"
+        fill={filled ? color : 'none'}
+      />
+    </Svg>
+  );
+}
+
+function GridMenuIcon({ size = 18, color = 'rgba(255,255,255,0.5)' }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Rect x="3" y="3" width="7" height="7" rx="1" stroke={color} strokeWidth={1.8} />
+      <Rect x="14" y="3" width="7" height="7" rx="1" stroke={color} strokeWidth={1.8} />
+      <Rect x="3" y="14" width="7" height="7" rx="1" stroke={color} strokeWidth={1.8} />
+      <Rect x="14" y="14" width="7" height="7" rx="1" stroke={color} strokeWidth={1.8} />
+    </Svg>
+  );
+}
+
+function SortIcon({ size = 12, color = '#5C5767' }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path d="M3 6h18M7 12h10M11 18h2" stroke={color} strokeWidth={2} strokeLinecap="round" />
+    </Svg>
+  );
+}
+
+function CheckIcon({ size = 11, color = '#fff' }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path d="M20 6L9 17l-5-5" stroke={color} strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
+function ChevronDownIcon({ size = 11, color = '#9B95A5' }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path d="M6 9l6 6 6-6" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
+function ChevronRightIcon({ size = 12, color = '#2D2B55' }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path d="M9 18l6-6-6-6" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
+function PlusIcon({ size = 18, color = '#fff' }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path d="M12 5v14M5 12h14" stroke={color} strokeWidth={2.2} strokeLinecap="round" />
+    </Svg>
+  );
+}
+
+function StarIcon({ size = 11, color = '#fff' }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill={color}>
+      <Path
+        d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"
+        fill={color}
+      />
+    </Svg>
+  );
+}
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-const isNewProduct = (product: Product): boolean =>
-  new Date(product.createdAt).getTime() >= Date.now() - 14 * 24 * 60 * 60 * 1000;
+const isNewProduct = (p: Product): boolean =>
+  new Date(p.createdAt).getTime() >= Date.now() - 14 * 24 * 60 * 60 * 1000;
 
-const isOnSale = (product: Product): boolean =>
-  product.comparePrice != null && product.comparePrice > product.price;
+const isOnSale = (p: Product): boolean =>
+  p.comparePrice != null && p.comparePrice > p.price;
 
-const getDiscountPercent = (product: Product): number => {
-  if (!product.comparePrice || product.comparePrice <= product.price) return 0;
-  return Math.round((1 - product.price / product.comparePrice) * 100);
+const getDiscountPercent = (p: Product): number => {
+  if (!p.comparePrice || p.comparePrice <= p.price) return 0;
+  return Math.round((1 - p.price / p.comparePrice) * 100);
 };
 
 const sortProducts = (products: Product[], key: SortKey): Product[] => {
@@ -98,7 +207,7 @@ export default function BuyerHomeScreen({ navigation }: BuyerHomeScreenProps) {
 
   const bounce = () => {
     Animated.sequence([
-      Animated.timing(cartScale, { toValue: 1.4, duration: 120, useNativeDriver: true }),
+      Animated.timing(cartScale, { toValue: 1.35, duration: 110, useNativeDriver: true }),
       Animated.spring(cartScale, { toValue: 1, useNativeDriver: true }),
     ]).start();
   };
@@ -120,7 +229,10 @@ export default function BuyerHomeScreen({ navigation }: BuyerHomeScreenProps) {
 
   const activeSortLabel = SORT_OPTIONS.find(o => o.key === sortKey)?.label ?? 'Relevance';
 
-  // Filter → sort
+  const avatarInitial = user?.name
+    ? user.name.trim().charAt(0).toUpperCase()
+    : user?.email?.charAt(0).toUpperCase() ?? '?';
+
   const filtered = sortProducts(
     allProducts.filter((p) => {
       const matchCat    = activeCategory === 'All' || p.category.toLowerCase() === activeCategory.toLowerCase();
@@ -131,26 +243,24 @@ export default function BuyerHomeScreen({ navigation }: BuyerHomeScreenProps) {
     sortKey,
   );
 
-  // ─── Product card ────────────────────────────────────────────────────────────
+  // ─── Product card ──────────────────────────────────────────────────────────
 
   const renderProduct = ({ item }: { item: Product }) => {
     const isWishlisted = isFavorite(item.id);
     const isSoldOut    = item.stock === 0;
+    const isLowStock   = item.stock > 0 && item.stock <= 5;
     const showSale     = isOnSale(item) && !isSoldOut;
     const showNew      = isNewProduct(item) && !isSoldOut && !showSale;
     const discount     = getDiscountPercent(item);
 
     return (
       <View style={styles.productCard}>
-        {/* Wishlist */}
         <Pressable style={styles.cardWishlistBtn} onPress={() => toggleWishlist(item)} hitSlop={10}>
-          <Text style={[styles.cardWishlistIcon, isWishlisted && styles.cardWishlistIconActive]}>
-            {isWishlisted ? '♥' : '♡'}
-          </Text>
+          <HeartIcon size={13} filled={isWishlisted} color={isWishlisted ? C.ink : C.textMuted} />
         </Pressable>
 
         <Pressable
-          style={({ pressed }) => [{ opacity: pressed ? 0.92 : 1 }]}
+          style={({ pressed }) => [{ opacity: pressed ? 0.93 : 1 }]}
           onPress={() => stackNav.navigate('ProductDetail', { productId: item.id })}
         >
           <View style={styles.productImageWrap}>
@@ -163,7 +273,7 @@ export default function BuyerHomeScreen({ navigation }: BuyerHomeScreenProps) {
             )}
             {isSoldOut && (
               <View style={styles.soldOutOverlay}>
-                <Text style={styles.soldOutText}>SOLD OUT</Text>
+                <Text style={styles.soldOutText}>Sold Out</Text>
               </View>
             )}
             {showSale && discount > 0 && (
@@ -173,7 +283,7 @@ export default function BuyerHomeScreen({ navigation }: BuyerHomeScreenProps) {
             )}
             {showNew && (
               <View style={styles.tagBadge}>
-                <Text style={styles.tagBadgeText}>NEW</Text>
+                <Text style={styles.tagBadgeText}>New</Text>
               </View>
             )}
           </View>
@@ -183,22 +293,34 @@ export default function BuyerHomeScreen({ navigation }: BuyerHomeScreenProps) {
             <View style={styles.priceRow}>
               <Text style={styles.productPrice}>₱{item.price.toLocaleString()}</Text>
               {showSale && item.comparePrice != null && (
-                <Text style={styles.comparePrice}>₱{item.comparePrice.toLocaleString()}</Text>
+                <>
+                  <Text style={styles.comparePrice}>₱{item.comparePrice.toLocaleString()}</Text>
+                  <Text style={styles.discountPercent}>-{discount}%</Text>
+                </>
               )}
             </View>
             <View style={styles.productFooter}>
-              {item.stock != null && item.stock > 0 && item.stock <= 20 && (
-                <Text style={styles.soldLabel}>{item.stock} left</Text>
+              {isLowStock ? (
+                <Text style={[styles.soldLabel, { color: '#F59E0B' }]}>
+                  Only {item.stock} left
+                </Text>
+              ) : (
+                item.stock > 0 && item.stock <= 20 && (
+                  <Text style={styles.soldLabel}>{item.stock} left</Text>
+                )
               )}
-              {!isSoldOut && (
-                <Pressable
-                  style={({ pressed }) => [styles.addBtn, pressed && styles.addBtnPressed]}
-                  onPress={() => handleAddToCart(item)}
-                  hitSlop={4}
-                >
-                  <Text style={styles.addBtnText}>+</Text>
-                </Pressable>
-              )}
+              <Pressable
+                style={({ pressed }) => [
+                  styles.addBtn,
+                  pressed && !isSoldOut && styles.addBtnPressed,
+                  isSoldOut && { backgroundColor: '#D1D5DB', opacity: 0.5 },
+                ]}
+                onPress={() => !isSoldOut && handleAddToCart(item)}
+                disabled={isSoldOut}
+                hitSlop={4}
+              >
+                <PlusIcon size={16} color="#fff" />
+              </Pressable>
             </View>
           </View>
         </Pressable>
@@ -206,7 +328,7 @@ export default function BuyerHomeScreen({ navigation }: BuyerHomeScreenProps) {
     );
   };
 
-  // ─── Sort modal ──────────────────────────────────────────────────────────────
+  // ─── Sort modal ───────────────────────────────────────────────────────────
 
   const SortModal = () => (
     <Modal
@@ -228,7 +350,11 @@ export default function BuyerHomeScreen({ navigation }: BuyerHomeScreenProps) {
               <Text style={[styles.sortRowLabel, sortKey === opt.key && styles.sortRowLabelActive]}>
                 {opt.label}
               </Text>
-              {sortKey === opt.key && <View style={styles.sortCheck} />}
+              {sortKey === opt.key && (
+                <View style={styles.sortCheck}>
+                  <CheckIcon size={11} color="#fff" />
+                </View>
+              )}
             </Pressable>
           ))}
         </View>
@@ -236,7 +362,7 @@ export default function BuyerHomeScreen({ navigation }: BuyerHomeScreenProps) {
     </Modal>
   );
 
-  // ─── List header (banner + categories + discount) ────────────────────────────
+  // ─── List header ──────────────────────────────────────────────────────────
 
   const ListHeader = () => (
     <>
@@ -245,8 +371,8 @@ export default function BuyerHomeScreen({ navigation }: BuyerHomeScreenProps) {
         <View style={styles.bannerInner}>
           <View style={styles.bannerLeft}>
             <View style={styles.bannerStars}>
-              {['⭐','⭐','⭐','⭐','⭐'].map((s, i) => (
-                <Text key={i} style={styles.bannerStarText}>{s}</Text>
+              {[0,1,2,3,4].map((i) => (
+                <StarIcon key={i} size={11} color={C.white} />
               ))}
               <Text style={styles.bannerStarLabel}>4.8+</Text>
             </View>
@@ -254,7 +380,7 @@ export default function BuyerHomeScreen({ navigation }: BuyerHomeScreenProps) {
               HIGHLY{'\n'}REVIEWED{'\n'}PICKS
             </Text>
             <Pressable
-              style={({ pressed }) => [styles.bannerCta, pressed && { opacity: 0.8 }]}
+              style={({ pressed }) => [styles.bannerCta, pressed && { opacity: 0.85 }]}
               onPress={() => stackNav.navigate('ProductList' as any)}
             >
               <Text style={styles.bannerCtaText}>Shop Now →</Text>
@@ -290,25 +416,6 @@ export default function BuyerHomeScreen({ navigation }: BuyerHomeScreenProps) {
         </View>
       </View>
 
-      {/* Promo bar */}
-      <View style={styles.promoBar}>
-        <View style={styles.promoBadge}>
-          <Text style={styles.promoBadgeIcon}>🚚</Text>
-          <View>
-            <Text style={styles.promoBadgeMain}>Free Shipping</Text>
-            <Text style={styles.promoBadgeSub}>On qualifying orders</Text>
-          </View>
-        </View>
-        <View style={styles.promoDivider} />
-        <View style={styles.promoBadge}>
-          <Text style={styles.promoBadgeIcon}>📋</Text>
-          <View>
-            <Text style={styles.promoBadgeMain}>Daily Check In</Text>
-            <Text style={styles.promoBadgeSub}>To get points</Text>
-          </View>
-        </View>
-      </View>
-
       {/* Category circles */}
       <View style={styles.catCirclesWrap}>
         <ScrollView
@@ -333,22 +440,7 @@ export default function BuyerHomeScreen({ navigation }: BuyerHomeScreenProps) {
         </ScrollView>
       </View>
 
-      {/* Discount draw banner */}
-      <View style={styles.discountBanner}>
-        <View style={styles.discountBadge}>
-          <Text style={styles.discountBadgePercent}>99%</Text>
-          <Text style={styles.discountBadgeOff}>OFF</Text>
-        </View>
-        <View>
-          <Text style={styles.discountText}>DRAW YOUR EXCLUSIVE{'\n'}DISCOUNT</Text>
-          <Text style={styles.discountPromoLabel}>Promotion</Text>
-        </View>
-        <Pressable style={styles.discountClaimBtn}>
-          <Text style={styles.discountClaimText}>CLAIM NOW</Text>
-        </Pressable>
-      </View>
-
-      {/* Super Deals section header */}
+      {/* Section header */}
       <View style={styles.sectionHeader}>
         <Text style={styles.sectionTitle}>
           Super<Text style={styles.sectionTitleAccent}> Deals</Text>
@@ -358,7 +450,7 @@ export default function BuyerHomeScreen({ navigation }: BuyerHomeScreenProps) {
           onPress={() => stackNav.navigate('ProductList' as any)}
         >
           <Text style={styles.seeAll}>See all</Text>
-          <Text style={styles.seeAllArrow}> ›</Text>
+          <ChevronRightIcon size={12} color={C.violet} />
         </Pressable>
       </View>
 
@@ -368,62 +460,76 @@ export default function BuyerHomeScreen({ navigation }: BuyerHomeScreenProps) {
           Showing <Text style={styles.statusCountBold}>{filtered.length} items</Text>
         </Text>
         <Pressable style={styles.sortBtn} onPress={() => setSortOpen(true)}>
-          <Text style={styles.sortBtnIcon}>⊜</Text>
+          <SortIcon size={12} color={C.textSecond} />
           <Text style={styles.sortBtnText}>{activeSortLabel}</Text>
-          <Text style={styles.sortBtnChevron}> ⌄</Text>
+          <ChevronDownIcon size={11} color={C.textMuted} />
         </Pressable>
       </View>
     </>
   );
 
-  // ─── Render ──────────────────────────────────────────────────────────────────
+  // ─── Render ───────────────────────────────────────────────────────────────
 
   return (
     <View style={styles.container}>
       <SortModal />
 
-      {/* ── Pink Header ──────────────────────────────────────────────────── */}
+      {/* ── Header ───────────────────────────────────────────────────────── */}
       <View style={styles.header}>
 
-        {/* Top bar: icons + search + heart */}
+        {/* Top bar */}
         <View style={styles.topBar}>
-          <View style={styles.topBarIcons}>
-            <TouchableWithoutFeedback
-              onPress={() => (navigation as any).navigate('BuyerNotifications')}
-            >
-              <View style={styles.topBarIcon}>
-                <Text style={styles.topBarIconText}>✉️</Text>
-                <View style={styles.notifDot} />
-              </View>
-            </TouchableWithoutFeedback>
-            <View style={styles.topBarIcon}>
-              <Text style={styles.topBarIconText}>📅</Text>
-              <View style={styles.notifDot} />
-            </View>
-          </View>
+          {/* Avatar */}
+          <Pressable
+            style={styles.avatarBtn}
+            onPress={() => (navigation as any).navigate('BuyerProfile')}
+          >
+            <Text style={styles.avatarFallbackText}>{avatarInitial}</Text>
+          </Pressable>
 
           {/* Search */}
-          <View style={[styles.searchWrap, searchFocused && { borderWidth: 1.5, borderColor: '#FF5C8D' }]}>
-            <Text style={styles.searchIcon}>🔍</Text>
+          <View style={[styles.searchWrap, searchFocused && styles.searchWrapFocused]}>
+            <SearchIcon size={14} color={C.placeholder} />
             <TextInput
               style={styles.searchInput}
-              placeholder="Search for products…"
-              placeholderTextColor="#AAAACC"
+              placeholder="Search products…"
+              placeholderTextColor={C.placeholder}
               value={searchQuery}
               onChangeText={setSearchQuery}
               onFocus={() => setSearchFocused(true)}
               onBlur={() => setSearchFocused(false)}
             />
-            <Text style={styles.searchCamera}>📷</Text>
             <Pressable style={styles.searchBtn}>
               <Text style={styles.searchBtnText}>Search</Text>
             </Pressable>
           </View>
 
-          {/* Wishlist / heart */}
-          <Pressable style={styles.wishlistBtn}>
-            <Text style={styles.wishlistBtnText}>🤍</Text>
-          </Pressable>
+          {/* Notification + Cart */}
+          <View style={styles.topBarRightIcons}>
+            {/* Bell */}
+            <Pressable
+              style={styles.iconPill}
+              onPress={() => (navigation as any).navigate('BuyerNotifications')}
+            >
+              <BellIcon size={18} color={C.white} />
+              <View style={styles.notifDot} />
+            </Pressable>
+
+            {/* Cart */}
+            <Pressable
+              style={styles.iconPill}
+              onPress={() => (navigation as any).navigate('Cart')}
+            >
+              <Animated.View style={{ transform: [{ scale: cartScale }] }}>
+                <CartIcon size={18} color={C.white} />
+              </Animated.View>
+              {itemCount > 0 && (
+                <View style={styles.cartCount}>
+                  <Text style={styles.cartCountText}>{itemCount > 99 ? '99+' : itemCount}</Text>
+                </View>
+              )}
+            </Pressable>
+          </View>
         </View>
 
         {/* Primary nav tabs */}
@@ -440,24 +546,23 @@ export default function BuyerHomeScreen({ navigation }: BuyerHomeScreenProps) {
             </Pressable>
           ))}
           <Pressable style={styles.navTabMore}>
-            <Text style={styles.navTabMoreText}>☰</Text>
+            <GridMenuIcon size={16} color="rgba(255,255,255,0.45)" />
           </Pressable>
         </View>
 
-        {/* Sub tabs: For You / New In / Deals / Bestsellers */}
+        {/* Sub tabs — no icons */}
         <View style={styles.subTabsWrap}>
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
             style={styles.subTabsRow as any}
           >
-            {SUB_TABS.map(({ key, icon }) => (
+            {SUB_TABS.map((key) => (
               <Pressable
                 key={key}
                 style={[styles.subTab, activeSubTab === key && styles.subTabActive]}
                 onPress={() => setActiveSubTab(key)}
               >
-                <Text style={styles.subTabIcon}>{icon}</Text>
                 <Text style={[styles.subTabText, activeSubTab === key && styles.subTabTextActive]}>
                   {key}
                 </Text>
@@ -465,10 +570,9 @@ export default function BuyerHomeScreen({ navigation }: BuyerHomeScreenProps) {
             ))}
           </ScrollView>
         </View>
-
       </View>
 
-      {/* ── White body ──────────────────────────────────────────────────── */}
+      {/* ── White body ───────────────────────────────────────────────────── */}
       <View style={styles.body}>
         <FlatList
           data={filtered}
@@ -480,19 +584,17 @@ export default function BuyerHomeScreen({ navigation }: BuyerHomeScreenProps) {
             <RefreshControl
               refreshing={refreshing}
               onRefresh={handleRefresh}
-              colors={['#FF5C8D']}
-              tintColor="#FF5C8D"
+              colors={[C.ink]}
+              tintColor={C.ink}
             />
           }
           ListHeaderComponent={<ListHeader />}
           ListEmptyComponent={
             <View style={styles.emptyWrap}>
-              <Text style={{ fontSize: 40 }}>👗</Text>
+              <Text style={{ fontSize: 38 }}>👗</Text>
               <Text style={styles.emptyTitle}>No products found</Text>
               <Text style={styles.emptyText}>
-                {searchQuery
-                  ? `No results for "${searchQuery}"`
-                  : 'Check back for new arrivals'}
+                {searchQuery ? `No results for "${searchQuery}"` : 'Check back for new arrivals'}
               </Text>
             </View>
           }

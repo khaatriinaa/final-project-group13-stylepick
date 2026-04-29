@@ -9,19 +9,31 @@ import { OrderStatus } from '../../../types';
 import { cancelOrder } from '../../../services/orderService';
 import { styles } from './BuyerOrderDetailScreen.styles';
 
-const STATUS_COLORS: Record<OrderStatus, { bg: string; text: string }> = {
-  pending:   { bg: '#FEF3C7', text: '#D97706' },
-  confirmed: { bg: '#DBEAFE', text: '#2563EB' },
-  preparing: { bg: '#EDE9FE', text: '#7C3AED' },
-  shipped:   { bg: '#D1FAE5', text: '#059669' },
-  delivered: { bg: '#DCFCE7', text: '#047857' },
-  cancelled: { bg: '#FEE2E2', text: '#DC2626' },
+// Mirrors STATUS_BADGE_STYLE from BuyerOrdersScreen
+const STATUS_BADGE_STYLE: Record<OrderStatus, { bg: string; text: string }> = {
+  pending:   { bg: '#FFFBEB', text: '#92400E' },
+  confirmed: { bg: '#EEF2FF', text: '#3730A3' },
+  preparing: { bg: '#EEF2FF', text: '#3730A3' },
+  shipped:   { bg: '#ECFDF5', text: '#065F46' },
+  delivered: { bg: '#DCFCE7', text: '#14532D' },
+  cancelled: { bg: '#F3F4F6', text: '#6B7280' },
   refunded:  { bg: '#F3F4F6', text: '#6B7280' },
+};
+
+// Mirrors STATUS_LABEL from BuyerOrdersScreen
+const STATUS_LABEL: Record<OrderStatus, string> = {
+  pending:   'Pending',
+  confirmed: 'Processing',
+  preparing: 'Processing',
+  shipped:   'Shipped',
+  delivered: 'Delivered',
+  cancelled: 'Cancelled',
+  refunded:  'Refunded',
 };
 
 const STATUS_STEPS: OrderStatus[] = ['pending', 'confirmed', 'preparing', 'shipped', 'delivered'];
 
-const STATUS_LABEL: Record<OrderStatus, string> = {
+const STEP_LABEL: Record<OrderStatus, string> = {
   pending:   'Pending',
   confirmed: 'Confirmed',
   preparing: 'Preparing',
@@ -33,7 +45,7 @@ const STATUS_LABEL: Record<OrderStatus, string> = {
 
 export default function BuyerOrderDetailScreen({ navigation, route }: BuyerOrderDetailScreenProps) {
   const { order } = route.params;
-  const color = STATUS_COLORS[order.status];
+  const badge = STATUS_BADGE_STYLE[order.status];
   const [cancelling, setCancelling] = useState(false);
 
   const isCancelled = order.status === 'cancelled' || order.status === 'refunded';
@@ -68,7 +80,8 @@ export default function BuyerOrderDetailScreen({ navigation, route }: BuyerOrder
 
   return (
     <View style={styles.container}>
-      {/* Header */}
+
+      {/* ── Header (mirrors BuyerOrdersScreen header style) ── */}
       <View style={styles.header}>
         <Pressable onPress={() => navigation.goBack()} style={styles.backBtn}>
           <Text style={styles.backBtnText}>← Back</Text>
@@ -77,73 +90,94 @@ export default function BuyerOrderDetailScreen({ navigation, route }: BuyerOrder
         <View style={{ width: 60 }} />
       </View>
 
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
 
-        {/* Order ID + Status */}
+        {/* ── Order ID + Status (mirrors cardHeader) ── */}
         <View style={styles.section}>
-          <View style={styles.orderIdRow}>
-            <Text style={styles.orderId}>#{order.id.slice(0, 8).toUpperCase()}</Text>
-            <View style={[styles.statusBadge, { backgroundColor: color.bg }]}>
-              <Text style={[styles.statusText, { color: color.text }]}>
-                {order.status.toUpperCase()}
+          <View style={styles.sectionBody}>
+            <View style={styles.orderIdRow}>
+              <Text style={styles.orderId}>
+                Order #{order.id.slice(0, 12).toUpperCase()}
               </Text>
+              <View style={[styles.badge, { backgroundColor: badge.bg }]}>
+                <Text style={[styles.badgeText, { color: badge.text }]}>
+                  {STATUS_LABEL[order.status]}
+                </Text>
+              </View>
             </View>
+            <Text style={styles.orderDate}>
+              {new Date(order.createdAt).toLocaleDateString('en-PH', {
+                weekday: 'short', month: 'long', day: 'numeric', year: 'numeric',
+              })}
+            </Text>
           </View>
-          <Text style={styles.orderDate}>
-            Placed on{' '}
-            {new Date(order.createdAt).toLocaleDateString('en-PH', {
-              weekday: 'short', month: 'long', day: 'numeric', year: 'numeric',
-            })}
-          </Text>
         </View>
 
-        {/* Progress tracker (only for active orders) */}
+        {/* ── Progress Tracker (only for active orders) ── */}
         {!isCancelled && (
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Order Progress</Text>
-            <View style={styles.progressRow}>
-              {STATUS_STEPS.map((step, index) => {
-                const isCompleted = currentStep >= index;
-                const isActive = currentStep === index;
-                return (
-                  <React.Fragment key={step}>
-                    <View style={styles.progressStepWrap}>
-                      <View style={[
-                        styles.progressDot,
-                        isCompleted && styles.progressDotCompleted,
-                        isActive && styles.progressDotActive,
-                      ]}>
-                        {isCompleted && !isActive && (
-                          <Text style={styles.progressCheck}>✓</Text>
-                        )}
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>Order Progress</Text>
+            </View>
+            <View style={styles.sectionBody}>
+              <View style={styles.progressRow}>
+                {STATUS_STEPS.map((step, index) => {
+                  const isCompleted = currentStep >= index;
+                  const isActive = currentStep === index;
+                  return (
+                    <React.Fragment key={step}>
+                      <View style={styles.progressStepWrap}>
+                        <View style={[
+                          styles.progressDot,
+                          isCompleted && styles.progressDotCompleted,
+                          isActive && styles.progressDotActive,
+                        ]}>
+                          {isCompleted && !isActive && (
+                            <Text style={styles.progressCheck}>✓</Text>
+                          )}
+                          {isActive && (
+                            <View style={styles.progressActiveDot} />
+                          )}
+                        </View>
+                        <Text style={[
+                          styles.progressLabel,
+                          isCompleted && styles.progressLabelCompleted,
+                          isActive && styles.progressLabelActive,
+                        ]}>
+                          {STEP_LABEL[step]}
+                        </Text>
                       </View>
-                      <Text style={[
-                        styles.progressLabel,
-                        isActive && styles.progressLabelActive,
-                        isCompleted && styles.progressLabelCompleted,
-                      ]}>
-                        {STATUS_LABEL[step]}
-                      </Text>
-                    </View>
-                    {index < STATUS_STEPS.length - 1 && (
-                      <View style={[
-                        styles.progressLine,
-                        currentStep > index && styles.progressLineCompleted,
-                      ]} />
-                    )}
-                  </React.Fragment>
-                );
-              })}
+                      {index < STATUS_STEPS.length - 1 && (
+                        <View style={[
+                          styles.progressLine,
+                          currentStep > index && styles.progressLineCompleted,
+                        ]} />
+                      )}
+                    </React.Fragment>
+                  );
+                })}
+              </View>
             </View>
           </View>
         )}
 
-        {/* Items */}
+        {/* ── Items Ordered (mirrors cardBody) ── */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Items Ordered</Text>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Items Ordered</Text>
+          </View>
+          <View style={styles.sectionBody}>
           {order.items.map((ci, i) => (
-            <View key={i} style={[styles.itemRow, i < order.items.length - 1 && styles.itemRowBorder]}>
-              {/* Product image from seller */}
+            <View
+              key={i}
+              style={[
+                styles.itemRow,
+                i < order.items.length - 1 && styles.itemRowBorder,
+              ]}
+            >
               <View style={styles.itemImageWrap}>
                 {ci.product.images?.[0] ? (
                   <Image
@@ -152,59 +186,83 @@ export default function BuyerOrderDetailScreen({ navigation, route }: BuyerOrder
                     resizeMode="cover"
                   />
                 ) : (
-                  <View style={styles.itemImagePlaceholder}>
-                    <Text style={styles.itemImageIcon}>🏷</Text>
-                  </View>
+                  <Text style={styles.itemImagePlaceholder}>🏷</Text>
                 )}
               </View>
-
-              {/* Info */}
               <View style={styles.itemInfo}>
-                <Text style={styles.itemName} numberOfLines={2}>{ci.product.name}</Text>
-                <Text style={styles.itemUnit}>₱{ci.product.price.toLocaleString()} × {ci.quantity}</Text>
-              </View>
+                <Text style={styles.itemName} numberOfLines={2}>
+                  {ci.product.name}
+                </Text>
 
-              {/* Subtotal */}
+                {/* ── Variant chip ── */}
+                {(ci.selectedColor || ci.selectedSize) && (
+                  <View style={styles.variantChip}>
+                    <View style={styles.variantDot} />
+                    <Text style={styles.variantText}>
+                      {[ci.selectedColor, ci.selectedSize].filter(Boolean).join(' / ')}
+                    </Text>
+                  </View>
+                )}
+
+                <Text style={styles.itemUnit}>
+                  ₱{ci.product.price.toLocaleString()} × {ci.quantity}
+                </Text>
+              </View>
               <Text style={styles.itemSubtotal}>
                 ₱{(ci.product.price * ci.quantity).toLocaleString()}
               </Text>
             </View>
           ))}
+          </View>
         </View>
 
-        {/* Order Summary */}
+        {/* ── Order Summary (mirrors cardFooter) ── */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Order Summary</Text>
-
-          <View style={styles.summaryRow}>
-            <Text style={styles.summaryLabel}>Subtotal</Text>
-            <Text style={styles.summaryValue}>₱{order.totalAmount.toLocaleString()}</Text>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Order Summary</Text>
           </View>
-          <View style={styles.summaryRow}>
-            <Text style={styles.summaryLabel}>Shipping</Text>
-            <Text style={[styles.summaryValue, { color: '#059669' }]}>Free</Text>
-          </View>
-          <View style={styles.summaryRow}>
-            <Text style={styles.summaryLabel}>Payment Method</Text>
-            <Text style={styles.summaryValue}>{order.paymentMethod}</Text>
-          </View>
-          <View style={styles.summaryRow}>
-            <Text style={styles.summaryLabel}>Payment Status</Text>
-            <Text style={styles.summaryValue}>{order.paymentStatus.toUpperCase()}</Text>
-          </View>
-          <View style={[styles.summaryRow, styles.summaryTotalRow]}>
-            <Text style={styles.summaryTotalLabel}>Total</Text>
-            <Text style={styles.summaryTotalValue}>₱{order.totalAmount.toLocaleString()}</Text>
+          <View style={styles.sectionBody}>
+            <View style={styles.summaryRow}>
+              <Text style={styles.summaryLabel}>Subtotal</Text>
+              <Text style={styles.summaryValue}>
+                ₱{order.totalAmount.toLocaleString()}
+              </Text>
+            </View>
+            <View style={styles.summaryRow}>
+              <Text style={styles.summaryLabel}>Shipping</Text>
+              <Text style={styles.summaryFreeText}>Free</Text>
+            </View>
+            <View style={styles.summaryRow}>
+              <Text style={styles.summaryLabel}>Payment Method</Text>
+              <Text style={styles.summaryValue}>{order.paymentMethod}</Text>
+            </View>
+            <View style={[styles.summaryRow, { marginBottom: 0 }]}>
+              <Text style={styles.summaryLabel}>Payment Status</Text>
+              <Text style={styles.summaryValue}>
+                {order.paymentStatus.toUpperCase()}
+              </Text>
+            </View>
+            <View style={styles.summaryDivider} />
+            <View style={styles.summaryTotalRow}>
+              <Text style={styles.summaryTotalLabel}>Total</Text>
+              <Text style={styles.summaryTotalValue}>
+                ₱{order.totalAmount.toLocaleString()}
+              </Text>
+            </View>
           </View>
         </View>
 
-        {/* Shipping Address */}
+        {/* ── Shipping Address ── */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Shipping Address</Text>
-          <Text style={styles.addressText}>{order.shippingAddress}</Text>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Shipping Address</Text>
+          </View>
+          <View style={styles.sectionBody}>
+            <Text style={styles.addressText}>{order.shippingAddress}</Text>
+          </View>
         </View>
 
-        {/* Cancel button (pending only) */}
+        {/* ── Cancel Button (pending only) ── */}
         {order.status === 'pending' && (
           <Pressable
             style={[styles.cancelBtn, cancelling && styles.cancelBtnDisabled]}
@@ -212,7 +270,7 @@ export default function BuyerOrderDetailScreen({ navigation, route }: BuyerOrder
             disabled={cancelling}
           >
             {cancelling
-              ? <ActivityIndicator color="#EF4444" />
+              ? <ActivityIndicator color="#EF4444" size="small" />
               : <Text style={styles.cancelBtnText}>Cancel Order</Text>
             }
           </Pressable>

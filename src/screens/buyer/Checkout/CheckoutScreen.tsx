@@ -2,188 +2,228 @@
 
 import React, { useState } from 'react';
 import {
-  View, Text, ScrollView, Pressable, KeyboardAvoidingView,
-  TouchableWithoutFeedback, Keyboard, Platform, TextInput,
-  Alert, ActivityIndicator,
+  View, Text, ScrollView, Pressable, Image,
+  Alert, ActivityIndicator, StatusBar,
 } from 'react-native';
-import { Formik } from 'formik';
-import * as Yup from 'yup';
-import * as Location from 'expo-location';
-import { CheckoutScreenProps } from '../../../props/props';
-import { useCart } from '../../../context/CartContext';
 import { useAuth } from '../../../context/AuthContext';
 import { placeOrder } from '../../../services/orderService';
+import { CheckoutScreenProps } from '../../../props/props';
 import { styles } from './CheckoutScreen.styles';
 
-const Schema = Yup.object().shape({
-  address: Yup.string().min(10, 'Please enter a complete address').required('Address is required'),
-});
-
-export default function CheckoutScreen({ navigation }: CheckoutScreenProps) {
-  const { cartItems, total, clearCart } = useCart();
+export default function CheckoutScreen({ navigation, route }: CheckoutScreenProps) {
   const { user } = useAuth();
   const [submitting, setSubmitting] = useState(false);
-  const [locating, setLocating]     = useState(false);
 
-  // Group by seller
-  const bySeller = cartItems.reduce<Record<string, typeof cartItems>>((acc, item) => {
-    const sid = item.product.sellerId;
-    if (!acc[sid]) acc[sid] = [];
-    acc[sid].push(item);
-    return acc;
-  }, {});
+  // Get only the selected items passed from the cart screen
+  const selectedItems = route.params?.selectedItems ?? [];
 
-  // ─── Location: auto-fill address ─────────────────────────────────────────
-  const getLocation = async (setFieldValue: (field: string, value: string) => void) => {
-    setLocating(true);
-    try {
-      const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== 'granted') {
-        Alert.alert('Permission Denied', 'Location access is needed to auto-fill your address.');
-        return;
-      }
-      const loc = await Location.getCurrentPositionAsync({
-        accuracy: Location.Accuracy.BestForNavigation,
-      });
-      const { latitude, longitude } = loc.coords;
-      const [place] = await Location.reverseGeocodeAsync({ latitude, longitude });
-      const address = [
-        place.street,
-        place.city ?? place.subregion,
-        place.region,
-      ].filter(Boolean).join(', ');
-      setFieldValue('address', address);
-    } catch (err) {
-      Alert.alert('Error', 'Could not get your location. Please enter address manually.');
-    } finally {
-      setLocating(false);
-    }
+  // Compute total from selected items only
+  const total = selectedItems.reduce(
+    (sum: number, item: any) => sum + item.product.price * item.quantity,
+    0
+  );
+
+  // Validation before placing order
+  const validate = (): string | null => {
+    if (!user?.name?.trim()) return 'Your profile is missing a name. Please update your profile.';
+    if (!user?.phone?.trim()) return 'Your profile is missing a phone number. Please update your profile.';
+    if (!user?.address?.trim()) return 'Your profile is missing a delivery address. Please update your profile.';
+    if (selectedItems.length === 0) return 'No items selected for checkout.';
+    return null;
   };
 
-  // ─── Place order ──────────────────────────────────────────────────────────
-  const handlePlaceOrder = async (values: { address: string }) => {
-    if (!user?.id || cartItems.length === 0) return;
+  // Group selected items by seller
+  const bySeller = selectedItems.reduce<Record<string, typeof selectedItems>>(
+    (acc: Record<string, typeof selectedItems>, item: any) => {
+      const sid = item.product.sellerId;
+      if (!acc[sid]) acc[sid] = [];
+      acc[sid].push(item);
+      return acc;
+    },
+    {}
+  );
+
+  const handlePlaceOrder = async () => {
+    const validationError = validate();
+    if (validationError) {
+      Alert.alert('Cannot Place Order', validationError);
+      return;
+    }
+
     setSubmitting(true);
     try {
       for (const [sellerId, items] of Object.entries(bySeller)) {
         await placeOrder({
-          buyerId:         user.id,
+          buyerId: user!.id,
           sellerId,
           items,
-          shippingAddress: values.address,
-          buyerName:       user.name,   // ← ADDED
-          buyerPhone:      user.phone,  // ← ADDED
+          shippingAddress: user!.address!,
+          buyerName: user!.name,
+          buyerPhone: user!.phone,
         });
       }
-      clearCart();
-      Alert.alert('🎉 Order Placed!', 'Your order was sent to the seller. Track it in My Orders.', [
-        { text: 'View Orders', onPress: () => navigation.reset({ index: 0, routes: [{ name: 'BuyerTabs' }] }) },
+
+      Alert.alert('Order Placed!', 'Your order has been placed successfully.', [
+        {
+          text: 'OK',
+          onPress: () =>
+            navigation.reset({ index: 0, routes: [{ name: 'BuyerTabs' }] }),
+        },
       ]);
     } catch (err: any) {
-      Alert.alert('Failed', err.message ?? 'Something went wrong.');
+      Alert.alert('Error', err.message ?? 'Failed to place order.');
     } finally {
       setSubmitting(false);
     }
   };
 
+  const missingFields: string[] = [];
+  if (!user?.name?.trim()) missingFields.push('Name');
+  if (!user?.phone?.trim()) missingFields.push('Phone Number');
+  if (!user?.address?.trim()) missingFields.push('Delivery Address');
+
   return (
-    <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
-      <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-        <ScrollView keyboardShouldPersistTaps="handled">
-          <View style={styles.header}>
-            <Pressable style={({ pressed }) => [styles.backBtn, pressed && styles.backBtnPressed]} onPress={() => navigation.goBack()}>
-              <Text>←</Text>
+    <View style={styles.container}>
+      <StatusBar barStyle="dark-content" />
+
+      {/* Header */}
+      <View style={styles.header}>
+        <Pressable
+          onPress={() => navigation.goBack()}
+          hitSlop={16}
+          style={styles.backBtn}
+        >
+          <Text style={styles.backArrow}>‹</Text>
+        </Pressable>
+        <Text style={styles.headerTitle}>Checkout ({selectedItems.length})</Text>
+        <View style={{ width: 40 }} />
+      </View>
+
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 110 }}>
+
+        {/* Missing fields warning */}
+        {missingFields.length > 0 && (
+          <View style={styles.warningBox}>
+            <Text style={styles.warningTitle}>⚠ Incomplete Profile</Text>
+            <Text style={styles.warningText}>
+              Missing: {missingFields.join(', ')}. Please update your profile before checking out.
+            </Text>
+            <Pressable
+              style={styles.warningBtn}
+              onPress={() => navigation.navigate('EditProfile' as never)}
+            >
+              <Text style={styles.warningBtnText}>Update Profile</Text>
             </Pressable>
-            <Text style={styles.title}>Checkout</Text>
+          </View>
+        )}
+
+        {/* Shipping Address */}
+        <View style={styles.sectionCard}>
+          <View style={styles.sectionLabelRow}>
+            <Text style={styles.pinIcon}>📍</Text>
+            <Text style={styles.sectionHeader}>Delivery Details</Text>
           </View>
 
-          <View style={styles.inner}>
-            {/* Order Summary */}
-            <Text style={styles.sectionTitle}>Order Summary</Text>
-            <View style={styles.card}>
-              {cartItems.map((item, i) => (
-                <View key={item.product.id} style={[styles.orderItem, i === cartItems.length - 1 && styles.orderItemLast]}>
-                  <Text style={styles.orderItemName} numberOfLines={1}>{item.product.name}</Text>
-                  <Text style={styles.orderItemQty}>×{item.quantity}</Text>
-                  <Text style={styles.orderItemPrice}>₱{(item.product.price * item.quantity).toLocaleString()}</Text>
-                </View>
-              ))}
-            </View>
+          <View style={styles.addressRow}>
+            <Text style={styles.addressLabel}>Name</Text>
+            <Text style={[styles.addressValue, !user?.name && styles.missingValue]}>
+              {user?.name?.trim() || 'Not set'}
+            </Text>
+          </View>
 
-            {/* Payment */}
-            <Text style={styles.sectionTitle}>Payment Method</Text>
-            <View style={styles.card}>
-              <View style={styles.paymentRow}>
-                <Text style={styles.paymentIcon}>💵</Text>
-                <Text style={styles.paymentLabel}>Cash on Delivery (COD)</Text>
-                <View style={styles.paymentBadge}><Text style={styles.paymentBadgeText}>Selected</Text></View>
+          <View style={styles.addressRow}>
+            <Text style={styles.addressLabel}>Phone</Text>
+            <Text style={[styles.addressValue, !user?.phone && styles.missingValue]}>
+              {user?.phone?.trim() || 'Not set'}
+            </Text>
+          </View>
+
+          <View style={[styles.addressRow, { borderBottomWidth: 0 }]}>
+            <Text style={styles.addressLabel}>Address</Text>
+            <Text style={[styles.addressValue, !user?.address && styles.missingValue, { flex: 1 }]}>
+              {user?.address?.trim() || 'Not set'}
+            </Text>
+          </View>
+        </View>
+
+        {/* Order Items */}
+        <View style={styles.sectionCard}>
+          <Text style={styles.sectionHeader}>
+            Order Items ({selectedItems.length})
+          </Text>
+
+          {selectedItems.map((item: any) => (
+            <View key={item.product.id} style={styles.productRow}>
+              <Image
+                source={{ uri: item.product.images?.[0] }}
+                style={styles.productImage}
+              />
+              <View style={styles.productInfo}>
+                <Text style={styles.productName} numberOfLines={2}>
+                  {item.product.name}
+                </Text>
+                <Text style={styles.productPrice}>₱{item.product.price.toFixed(2)}</Text>
+                <Text style={styles.productQty}>Qty: {item.quantity}</Text>
               </View>
+              <Text style={styles.productSubtotal}>
+                ₱{(item.product.price * item.quantity).toFixed(2)}
+              </Text>
             </View>
+          ))}
+        </View>
 
-            {/* Shipping address with location auto-fill */}
-            <Formik initialValues={{ address: user?.address ?? '' }} validationSchema={Schema} onSubmit={handlePlaceOrder}>
-              {({ handleChange, handleBlur, handleSubmit, values, errors, touched, setFieldValue }) => (
-                <>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 20, marginBottom: 10 }}>
-                    <Text style={[styles.sectionTitle, { flex: 1, marginTop: 0, marginBottom: 0 }]}>Shipping Address</Text>
-                    <Pressable
-                      onPress={() => getLocation(setFieldValue)}
-                      disabled={locating}
-                      style={({ pressed }) => [{
-                        flexDirection: 'row', alignItems: 'center', gap: 4,
-                        backgroundColor: '#EFF6FF', borderRadius: 8,
-                        paddingHorizontal: 10, paddingVertical: 6,
-                        opacity: pressed ? 0.7 : 1,
-                      }]}
-                    >
-                      {locating
-                        ? <ActivityIndicator size="small" color="#2563EB" />
-                        : <Text style={{ fontSize: 12 }}>📍</Text>
-                      }
-                      <Text style={{ fontSize: 12, fontWeight: '700', color: '#2563EB' }}>
-                        {locating ? 'Getting...' : 'Use Location'}
-                      </Text>
-                    </Pressable>
-                  </View>
-
-                  <View style={styles.card}>
-                    <TextInput
-                      style={[styles.input, touched.address && errors.address ? styles.inputError : null]}
-                      placeholder="Enter your complete delivery address"
-                      placeholderTextColor="#9CA3AF" multiline numberOfLines={3}
-                      onChangeText={handleChange('address')} onBlur={handleBlur('address')} value={values.address}
-                    />
-                    {touched.address && errors.address && <Text style={styles.errorText}>{errors.address}</Text>}
-                  </View>
-
-                  {/* Total */}
-                  <View style={styles.totalCard}>
-                    <View style={styles.totalRow}>
-                      <Text style={styles.totalLabel}>Subtotal</Text>
-                      <Text style={styles.totalValue}>₱{total.toLocaleString()}</Text>
-                    </View>
-                    <View style={styles.totalRow}>
-                      <Text style={styles.totalLabel}>Shipping</Text>
-                      <Text style={[styles.totalValue, { color: '#16A34A' }]}>Free</Text>
-                    </View>
-                    <View style={[styles.totalRow, { marginTop: 8, paddingTop: 8, borderTopWidth: 1, borderTopColor: '#F3F4F6' }]}>
-                      <Text style={styles.grandTotalLabel}>Total</Text>
-                      <Text style={styles.grandTotalValue}>₱{total.toLocaleString()}</Text>
-                    </View>
-                  </View>
-
-                  <Pressable
-                    style={({ pressed }) => [styles.placeOrderBtn, pressed && styles.placeOrderBtnPressed, submitting && styles.placeOrderBtnDisabled]}
-                    onPress={() => handleSubmit()} disabled={submitting}
-                  >
-                    {submitting ? <ActivityIndicator color="#FFF" /> : <Text style={styles.placeOrderText}>Place Order 🎉</Text>}
-                  </Pressable>
-                </>
-              )}
-            </Formik>
+        {/* Payment Method — COD only */}
+        <View style={styles.sectionCard}>
+          <Text style={styles.sectionHeader}>Payment Method</Text>
+          <View style={styles.paymentOption}>
+            <View style={styles.radioSelected}>
+              <View style={styles.radioInner} />
+            </View>
+            <Text style={styles.paymentText}>Cash on Delivery</Text>
           </View>
-        </ScrollView>
-      </TouchableWithoutFeedback>
-    </KeyboardAvoidingView>
+        </View>
+
+        {/* Order Summary */}
+        <View style={styles.sectionCard}>
+          <Text style={styles.sectionHeader}>Order Summary</Text>
+
+          <View style={styles.summaryRow}>
+            <Text style={styles.summaryLabel}>Items ({selectedItems.length})</Text>
+            <Text style={styles.summaryValue}>₱{total.toFixed(2)}</Text>
+          </View>
+
+          <View style={styles.summaryRow}>
+            <Text style={styles.summaryLabel}>Shipping Fee</Text>
+            <Text style={styles.freeText}>FREE</Text>
+          </View>
+
+          <View style={styles.divider} />
+
+          <View style={styles.summaryRow}>
+            <Text style={styles.totalLabel}>Order Total</Text>
+            <Text style={styles.totalValue}>₱{total.toFixed(2)}</Text>
+          </View>
+        </View>
+
+      </ScrollView>
+
+      {/* Bottom Bar */}
+      <View style={styles.bottomBar}>
+        <View style={styles.bottomPriceInfo}>
+          <Text style={styles.bottomLabel}>Total</Text>
+          <Text style={styles.finalPrice}>₱{total.toFixed(2)}</Text>
+        </View>
+        <Pressable
+          style={[styles.placeOrderBtn, (submitting || missingFields.length > 0 || selectedItems.length === 0) && styles.placeOrderBtnDisabled]}
+          onPress={handlePlaceOrder}
+          disabled={submitting || missingFields.length > 0 || selectedItems.length === 0}
+        >
+          {submitting
+            ? <ActivityIndicator color="#fff" />
+            : <Text style={styles.placeOrderText}>Place Order</Text>
+          }
+        </Pressable>
+      </View>
+    </View>
   );
 }

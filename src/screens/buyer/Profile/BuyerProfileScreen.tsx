@@ -9,37 +9,55 @@ import * as Location from 'expo-location';
 import { useFocusEffect } from '@react-navigation/native';
 import { BuyerProfileScreenProps } from '../../../props/props';
 import { useAuth } from '../../../context/AuthContext';
-import { COLORS, FONTS, RADIUS, SHADOW } from '../../../theme';
 
-const MENU = [
-  { id: 'edit',     label: 'Edit Profile' },
-  { id: 'location', label: 'Get Current Location' },
-  { id: 'notifs',   label: 'Notifications' },
-  { id: 'password', label: 'Change Password' },
-  { id: 'help',     label: 'Help & Support' },
+const MENU_GENERAL = [
+  { id: 'edit',     label: 'Edit Profile',         symbol: '›', icon: '✎' },
+  { id: 'location', label: 'Get Current Location', symbol: '›', icon: '⚲' },
+  { id: 'notifs',   label: 'Notifications',        symbol: '›', icon: '▤' },
 ];
+
+const MENU_PREFERENCES = [
+  { id: 'password', label: 'Change Password',      symbol: '›', icon: '🗝' },
+  { id: 'help',     label: 'Help & Support',       symbol: '›', icon: 'ⓘ' },
+];
+
+const LOGOUT_ICON = '⏻';
 
 export default function BuyerProfileScreen({ navigation }: BuyerProfileScreenProps) {
   const { user, logout, updateProfile } = useAuth();
   const [imageUri, setImageUri] = useState<string | null>(user?.profilePicture ?? null);
   const [locationLoading, setLocationLoading] = useState(false);
 
-  useFocusEffect(useCallback(() => { setImageUri(user?.profilePicture ?? null); }, [user?.profilePicture]));
+  useFocusEffect(useCallback(() => {
+    setImageUri(user?.profilePicture ?? null);
+  }, [user?.profilePicture]));
 
   const handleChangePicture = () => {
     Alert.alert('Profile Photo', 'Choose an option', [
-      { text: 'Take Photo', onPress: async () => {
-        const { status } = await ImagePicker.requestCameraPermissionsAsync();
-        if (status !== 'granted') { Alert.alert('Permission Denied', 'Camera permission is required.'); return; }
-        const r = await ImagePicker.launchCameraAsync({ allowsEditing: true, quality: 1 });
-        if (!r.canceled) { const uri = r.assets[0].uri; setImageUri(uri); await updateProfile({ profilePicture: uri }); }
-      }},
-      { text: 'Choose from Gallery', onPress: async () => {
-        const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-        if (status !== 'granted') { Alert.alert('Permission Denied', 'Gallery permission is required.'); return; }
-        const r = await ImagePicker.launchImageLibraryAsync({ allowsEditing: true, quality: 1 });
-        if (!r.canceled) { const uri = r.assets[0].uri; setImageUri(uri); await updateProfile({ profilePicture: uri }); }
-      }},
+      {
+        text: 'Take Photo', onPress: async () => {
+          const { status } = await ImagePicker.requestCameraPermissionsAsync();
+          if (status !== 'granted') { Alert.alert('Permission Denied', 'Camera permission is required.'); return; }
+          const r = await ImagePicker.launchCameraAsync({ allowsEditing: true, quality: 1 });
+          if (!r.canceled) {
+            const uri = r.assets[0].uri;
+            setImageUri(uri);
+            await updateProfile({ profilePicture: uri });
+          }
+        },
+      },
+      {
+        text: 'Choose from Gallery', onPress: async () => {
+          const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+          if (status !== 'granted') { Alert.alert('Permission Denied', 'Gallery permission is required.'); return; }
+          const r = await ImagePicker.launchImageLibraryAsync({ allowsEditing: true, quality: 1 });
+          if (!r.canceled) {
+            const uri = r.assets[0].uri;
+            setImageUri(uri);
+            await updateProfile({ profilePicture: uri });
+          }
+        },
+      },
       { text: 'Cancel', style: 'cancel' },
     ]);
   };
@@ -54,8 +72,11 @@ export default function BuyerProfileScreen({ navigation }: BuyerProfileScreenPro
       const address = [place.street, place.city ?? place.subregion, place.region].filter(Boolean).join(', ');
       await updateProfile({ address });
       Alert.alert('Location Updated', address);
-    } catch { Alert.alert('Error', 'Could not get location.'); }
-    finally { setLocationLoading(false); }
+    } catch {
+      Alert.alert('Error', 'Could not get location.');
+    } finally {
+      setLocationLoading(false);
+    }
   };
 
   const handleLogout = () => {
@@ -73,106 +94,270 @@ export default function BuyerProfileScreen({ navigation }: BuyerProfileScreenPro
     if (id === 'help')     Alert.alert('Help & Support', 'Contact us at support@shopgo.ph');
   };
 
+  const initial = user?.name?.charAt(0).toUpperCase() ?? 'U';
+
   return (
-    <ScrollView style={s.container}>
-      {/* Header */}
+    <ScrollView style={s.container} showsVerticalScrollIndicator={false}>
+
+      {/* ── Header ── */}
       <View style={s.header}>
         <Pressable style={s.avatarWrap} onPress={handleChangePicture}>
-          {imageUri
-            ? <Image source={{ uri: imageUri }} style={s.avatarImg} />
-            : <View style={s.avatarFallback}>
-                <Text style={s.avatarInitial}>{user?.name?.charAt(0).toUpperCase() ?? 'U'}</Text>
-              </View>
-          }
-          <View style={s.cameraTag}><Text style={s.cameraTagText}>Edit</Text></View>
+          {imageUri ? (
+            <Image source={{ uri: imageUri }} style={s.avatarImg} />
+          ) : (
+            <View style={s.avatarFallback}>
+              <Text style={s.avatarInitial}>{initial}</Text>
+            </View>
+          )}
+          <View style={s.editBadge}>
+            <Text style={s.editBadgeText}>✎</Text>
+          </View>
         </Pressable>
+
         <Text style={s.name}>{user?.name}</Text>
         <Text style={s.email}>{user?.email}</Text>
-        {user?.address && <Text style={s.address} numberOfLines={1}>{user.address}</Text>}
+
+        {/* Address now placed directly under email */}
+        {user?.address ? (
+          <View style={s.addressRow}>
+            <Text style={s.addressPin}>⚲</Text>
+            <Text style={s.address} numberOfLines={2}>{user.address}</Text>
+          </View>
+        ) : null}
       </View>
 
-      {/* General section */}
-      <View style={s.section}>
-        <Text style={s.sectionLabel}>GENERAL</Text>
+      {/* ── General ── */}
+      <View style={s.sectionWrap}>
+        <Text style={s.sectionLabel}>General</Text>
         <View style={s.card}>
-          {MENU.slice(0, 3).map((item, i, arr) => (
+          {MENU_GENERAL.map((item, i) => (
             <Pressable
               key={item.id}
-              style={({ pressed }) => [s.menuItem, i < arr.length - 1 && s.menuItemBorder, pressed && s.menuItemPressed]}
+              style={({ pressed }) => [
+                s.menuItem,
+                i < MENU_GENERAL.length - 1 && s.menuItemBorder,
+                pressed && s.menuItemPressed,
+              ]}
               onPress={() => handleMenuItem(item.id)}
               disabled={item.id === 'location' && locationLoading}
             >
+              <View style={s.menuIconWrap}>
+                <Text style={s.menuIconText}>{item.icon}</Text>
+              </View>
               <Text style={s.menuLabel}>{item.label}</Text>
-              {item.id === 'location' && locationLoading
-                ? <ActivityIndicator size="small" color={COLORS.primary} />
-                : <Text style={s.menuArrow}>›</Text>
-              }
+              {item.id === 'location' && locationLoading ? (
+                <ActivityIndicator size="small" color="#111827" />
+              ) : (
+                <Text style={s.menuArrow}>{item.symbol}</Text>
+              )}
             </Pressable>
           ))}
         </View>
       </View>
 
-      {/* Preferences section */}
-      <View style={s.section}>
-        <Text style={s.sectionLabel}>PREFERENCES</Text>
+      {/* ── Preferences ── */}
+      <View style={s.sectionWrap}>
+        <Text style={s.sectionLabel}>Preferences</Text>
         <View style={s.card}>
-          {MENU.slice(3).map((item, i, arr) => (
+          {MENU_PREFERENCES.map((item, i) => (
             <Pressable
               key={item.id}
-              style={({ pressed }) => [s.menuItem, i < arr.length - 1 && s.menuItemBorder, pressed && s.menuItemPressed]}
+              style={({ pressed }) => [
+                s.menuItem,
+                i < MENU_PREFERENCES.length - 1 && s.menuItemBorder,
+                pressed && s.menuItemPressed,
+              ]}
               onPress={() => handleMenuItem(item.id)}
             >
+              <View style={s.menuIconWrap}>
+                <Text style={s.menuIconText}>{item.icon}</Text>
+              </View>
               <Text style={s.menuLabel}>{item.label}</Text>
-              <Text style={s.menuArrow}>›</Text>
+              <Text style={s.menuArrow}>{item.symbol}</Text>
             </Pressable>
           ))}
         </View>
       </View>
 
-      {/* Logout */}
-      <View style={s.section}>
+      {/* ── Sign Out ── */}
+      <View style={s.sectionWrap}>
         <View style={s.card}>
-          <Pressable style={({ pressed }) => [s.menuItem, pressed && s.menuItemPressed]} onPress={handleLogout}>
-            <Text style={[s.menuLabel, { color: COLORS.error }]}>Sign Out</Text>
+          <Pressable
+            style={({ pressed }) => [s.menuItem, pressed && s.menuItemPressed]}
+            onPress={handleLogout}
+          >
+            <View style={[s.menuIconWrap, s.logoutIconWrap]}>
+              <Text style={[s.menuIconText, s.logoutIconText]}>{LOGOUT_ICON}</Text>
+            </View>
+            <Text style={s.logoutLabel}>Sign Out</Text>
           </Pressable>
         </View>
       </View>
 
-      <View style={{ height: 20 }} />
+      <View style={{ height: 40 }} />
     </ScrollView>
   );
 }
 
 const s = StyleSheet.create({
-  container: { flex: 1, backgroundColor: COLORS.background },
+  container: {
+    flex: 1,
+    backgroundColor: '#F5F5F5',
+  },
+
+  /* ── Header ── */
   header: {
-    backgroundColor: COLORS.white, paddingTop: 56,
-    paddingBottom: 24, alignItems: 'center',
-    borderBottomWidth: 1, borderBottomColor: COLORS.border,
+    backgroundColor: '#111827',
+    paddingTop: 56,
+    paddingBottom: 32,
+    alignItems: 'center',
+    paddingHorizontal: 20,
   },
-  avatarWrap: { marginBottom: 12, position: 'relative' },
-  avatarImg: { width: 80, height: 80, borderRadius: 40 },
+  avatarWrap: {
+    marginBottom: 16,
+    position: 'relative',
+  },
+  avatarImg: {
+    width: 84,
+    height: 84,
+    borderRadius: 42,
+    borderWidth: 2,
+    borderColor: '#FFFFFF',
+  },
   avatarFallback: {
-    width: 80, height: 80, borderRadius: 40,
-    backgroundColor: COLORS.primaryLight,
-    alignItems: 'center', justifyContent: 'center',
+    width: 84,
+    height: 84,
+    borderRadius: 42,
+    backgroundColor: '#FFFFFF',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  avatarInitial: { fontSize: 32, fontWeight: FONTS.bold, color: COLORS.primary },
-  cameraTag: {
-    position: 'absolute', bottom: -4, right: -4,
-    backgroundColor: COLORS.primary, borderRadius: RADIUS.full,
-    paddingHorizontal: 8, paddingVertical: 3,
+  avatarInitial: {
+    fontSize: 34,
+    fontWeight: '700',
+    color: '#111827',
   },
-  cameraTagText: { fontSize: 10, color: COLORS.white, fontWeight: FONTS.bold },
-  name: { fontSize: 18, fontWeight: FONTS.bold, color: COLORS.text, marginBottom: 2 },
-  email: { fontSize: 13, color: COLORS.textSecondary },
-  address: { fontSize: 12, color: COLORS.textLight, marginTop: 4, maxWidth: 260, textAlign: 'center' },
-  section: { paddingHorizontal: 16, marginTop: 20 },
-  sectionLabel: { fontSize: 11, fontWeight: FONTS.bold, color: COLORS.textLight, letterSpacing: 0.8, marginBottom: 8 },
-  card: { backgroundColor: COLORS.white, borderRadius: RADIUS.lg, overflow: 'hidden', ...SHADOW.sm },
-  menuItem: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 16 },
-  menuItemBorder: { borderBottomWidth: 1, borderBottomColor: COLORS.border },
-  menuItemPressed: { backgroundColor: COLORS.background },
-  menuLabel: { flex: 1, fontSize: 14, fontWeight: FONTS.medium, color: COLORS.text },
-  menuArrow: { fontSize: 18, color: COLORS.textLight },
+  editBadge: {
+    position: 'absolute',
+    bottom: 0,
+    right: -2,
+    backgroundColor: '#374151',
+    borderRadius: 13,
+    width: 26,
+    height: 26,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: '#111827',
+  },
+  editBadgeText: {
+    fontSize: 12,
+    color: '#FFFFFF',
+  },
+  name: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    letterSpacing: 0.2,
+    marginBottom: 2,
+  },
+  email: {
+    fontSize: 13,
+    color: '#9CA3AF',
+    marginBottom: 8,
+  },
+  addressRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 30,
+    gap: 4,
+  },
+  addressPin: {
+    fontSize: 14,
+    color: '#9CA3AF',
+  },
+  address: {
+    fontSize: 12,
+    color: '#9CA3AF',
+    textAlign: 'center',
+    lineHeight: 16,
+  },
+
+  /* ── Sections ── */
+  sectionWrap: {
+    paddingHorizontal: 16,
+    marginTop: 20,
+  },
+  sectionLabel: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#6B7280',
+    letterSpacing: 1.4,
+    textTransform: 'uppercase',
+    marginBottom: 8,
+    paddingLeft: 2,
+  },
+  card: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 14,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+  },
+
+  /* ── Menu items ── */
+  menuItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 15,
+    gap: 14,
+  },
+  menuItemBorder: {
+    borderBottomWidth: 1,
+    borderBottomColor: '#F3F4F6',
+  },
+  menuItemPressed: {
+    backgroundColor: '#F9FAFB',
+  },
+  menuIconWrap: {
+    width: 38,
+    height: 38,
+    borderRadius: 10,
+    backgroundColor: '#111827',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  menuIconText: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#FFFFFF',
+  },
+  menuLabel: {
+    flex: 1,
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#111827',
+  },
+  menuArrow: {
+    fontSize: 20,
+    color: '#9CA3AF',
+    fontWeight: '300',
+  },
+
+  /* ── Logout ── */
+  logoutIconWrap: {
+    backgroundColor: '#1F2937',
+  },
+  logoutIconText: {
+    color: '#F87171',
+    fontSize: 16,
+  },
+  logoutLabel: {
+    flex: 1,
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#E63946',
+  },
 });

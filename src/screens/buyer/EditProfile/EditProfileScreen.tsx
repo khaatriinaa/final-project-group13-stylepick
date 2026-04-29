@@ -8,7 +8,6 @@ import {
 import { Formik } from 'formik';
 import * as Yup from 'yup';
 import { useAuth } from '../../../context/AuthContext';
-import { COLORS, FONTS, RADIUS } from '../../../theme';
 import { supabase } from '../../../services/supabaseClient';
 
 const Schema = Yup.object().shape({
@@ -17,22 +16,48 @@ const Schema = Yup.object().shape({
   address: Yup.string().min(5, 'Please enter a complete address').nullable(),
 });
 
+const FIELDS = [
+  {
+    field: 'name',
+    label: 'Full Name',
+    placeholder: 'Enter your full name',
+    keyboard: 'default' as const,
+    required: true,
+    multiline: false,
+  },
+  {
+    field: 'phone',
+    label: 'Phone Number',
+    placeholder: 'e.g. 09171234567',
+    keyboard: 'phone-pad' as const,
+    required: false,
+    multiline: false,
+  },
+  {
+    field: 'address',
+    label: 'Delivery Address',
+    placeholder: 'Enter your full address',
+    keyboard: 'default' as const,
+    required: false,
+    multiline: true,
+  },
+];
+
 export default function EditProfileScreen({ navigation }: any) {
   const { user, updateProfile } = useAuth();
   const [loading, setLoading] = useState(false);
   const [initialValues, setInitialValues] = useState({
-    name: user?.name ?? '',
-    phone: user?.phone ?? '',
+    name:    user?.name    ?? '',
+    phone:   user?.phone   ?? '',
     address: user?.address ?? '',
   });
 
-  // Load buyer profile from Supabase on mount
   useEffect(() => {
     const fetchProfile = async () => {
       const { data: { user: authUser } } = await supabase.auth.getUser();
       if (!authUser) return;
 
-      const { data, error } = await supabase
+      const { data } = await supabase
         .from('buyer_profiles')
         .select('full_name, phone_number, delivery_address')
         .eq('id', authUser.id)
@@ -40,105 +65,143 @@ export default function EditProfileScreen({ navigation }: any) {
 
       if (data) {
         setInitialValues({
-          name: data.full_name ?? user?.name ?? '',
-          phone: data.phone_number ?? user?.phone ?? '',
+          name:    data.full_name        ?? user?.name    ?? '',
+          phone:   data.phone_number     ?? user?.phone   ?? '',
           address: data.delivery_address ?? user?.address ?? '',
         });
       }
     };
-
     fetchProfile();
   }, []);
 
   const handleSave = async (values: { name: string; phone: string; address: string }) => {
     setLoading(true);
     try {
-      // Upsert to buyer_profiles in Supabase
       const { data: { user: authUser } } = await supabase.auth.getUser();
       if (authUser) {
         const { error: upsertError } = await supabase
           .from('buyer_profiles')
           .upsert({
-            id: authUser.id,
-            full_name: values.name,
-            email: authUser.email,
-            phone_number: values.phone || null,
+            id:               authUser.id,
+            full_name:        values.name,
+            email:            authUser.email,
+            phone_number:     values.phone   || null,
             delivery_address: values.address || null,
           });
-
         if (upsertError) throw new Error(upsertError.message);
       }
 
-      await updateProfile({ name: values.name, phone: values.phone || undefined, address: values.address || undefined });
-      Alert.alert('Success', 'Profile updated successfully.', [{ text: 'OK', onPress: () => navigation.goBack() }]);
+      await updateProfile({
+        name:    values.name,
+        phone:   values.phone   || undefined,
+        address: values.address || undefined,
+      });
+
+      Alert.alert('Success', 'Profile updated successfully.', [
+        { text: 'OK', onPress: () => navigation.goBack() },
+      ]);
     } catch (err: any) {
       Alert.alert('Error', err.message ?? 'Failed to update profile.');
-    } finally { setLoading(false); }
+    } finally {
+      setLoading(false);
+    }
   };
 
+  const initial = user?.name?.charAt(0).toUpperCase() ?? 'U';
+
   return (
-    <KeyboardAvoidingView style={s.container} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+    <KeyboardAvoidingView
+      style={s.root}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+    >
       <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-        <ScrollView keyboardShouldPersistTaps="handled">
+        <ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+
+          {/* ── Header ── */}
           <View style={s.header}>
-            <Pressable style={({ pressed }) => [s.backBtn, pressed && { opacity: 0.6 }]} onPress={() => navigation.goBack()}>
+            <Pressable
+              style={({ pressed }) => [s.backBtn, pressed && s.backBtnPressed]}
+              onPress={() => navigation.goBack()}
+            >
               <Text style={s.backBtnText}>‹</Text>
             </Pressable>
             <Text style={s.headerTitle}>Edit Profile</Text>
             <View style={{ width: 40 }} />
           </View>
 
-          <View style={s.body}>
-            <View style={s.avatarWrap}>
-              <View style={s.avatar}>
-                <Text style={{ fontSize: 36, color: COLORS.textSecondary }}>
-                  {user?.name?.charAt(0).toUpperCase() ?? 'U'}
-                </Text>
-              </View>
+          {/* ── Avatar row ── */}
+          <View style={s.avatarSection}>
+            <View style={s.avatarCircle}>
+              <Text style={s.avatarInitial}>{initial}</Text>
+            </View>
+            <View style={s.avatarMeta}>
               <Text style={s.avatarName}>{user?.name}</Text>
               <Text style={s.avatarEmail}>{user?.email}</Text>
             </View>
+          </View>
 
-            <Formik
-              initialValues={initialValues}
-              enableReinitialize
-              validationSchema={Schema} onSubmit={handleSave}
-            >
-              {({ handleChange, handleBlur, handleSubmit, values, errors, touched }) => (
-                <View style={s.form}>
-                  {[
-                    { field: 'name',    label: 'Full Name',    placeholder: 'Enter your full name',      keyboard: 'default' as const, required: true },
-                    { field: 'phone',   label: 'Phone Number', placeholder: 'e.g. 09171234567',          keyboard: 'phone-pad' as const, required: false },
-                    { field: 'address', label: 'Delivery Address', placeholder: 'Enter your full address', keyboard: 'default' as const, required: false },
-                  ].map(({ field, label, placeholder, keyboard, required }) => (
-                    <View key={field} style={s.field}>
-                      <Text style={s.label}>{label} {required && <Text style={s.req}>*</Text>}</Text>
-                      <View style={[s.inputWrap, touched[field as keyof typeof values] && errors[field as keyof typeof values] ? s.inputWrapError : null]}>
+          {/* ── Section Label ── */}
+          <Text style={s.sectionLabel}>Account Information</Text>
+
+          {/* ── Form ── */}
+          <Formik
+            initialValues={initialValues}
+            enableReinitialize
+            validationSchema={Schema}
+            onSubmit={handleSave}
+          >
+            {({ handleChange, handleBlur, handleSubmit, values, errors, touched }) => (
+              <View style={s.form}>
+                {FIELDS.map(({ field, label, placeholder, keyboard, required, multiline }) => {
+                  const hasError =
+                    touched[field as keyof typeof values] &&
+                    !!errors[field as keyof typeof values];
+
+                  return (
+                    <View key={field} style={s.fieldWrap}>
+                      <Text style={s.label}>
+                        {label}
+                        {required && <Text style={s.req}> *</Text>}
+                      </Text>
+                      <View style={[s.inputBox, hasError && s.inputBoxError]}>
                         <TextInput
-                          style={s.input} placeholder={placeholder} placeholderTextColor={COLORS.textLight}
+                          style={[s.input, multiline && s.inputMultiline]}
+                          placeholder={placeholder}
+                          placeholderTextColor="#9CA3AF"
                           keyboardType={keyboard}
                           autoCapitalize={field === 'phone' ? 'none' : 'sentences'}
-                          onChangeText={handleChange(field)} onBlur={handleBlur(field)}
+                          onChangeText={handleChange(field)}
+                          onBlur={handleBlur(field)}
                           value={values[field as keyof typeof values]}
-                          multiline={field === 'address'} numberOfLines={field === 'address' ? 3 : 1}
+                          multiline={multiline}
+                          numberOfLines={multiline ? 3 : 1}
+                          textAlignVertical={multiline ? 'top' : 'center'}
                         />
                       </View>
-                      {touched[field as keyof typeof values] && errors[field as keyof typeof values] && (
-                        <Text style={s.errorText}>{errors[field as keyof typeof values] as string}</Text>
+                      {hasError && (
+                        <Text style={s.errorText}>
+                          {errors[field as keyof typeof values] as string}
+                        </Text>
                       )}
                     </View>
-                  ))}
+                  );
+                })}
 
-                  <Pressable
-                    style={({ pressed }) => [s.saveBtn, pressed && { opacity: 0.88 }]}
-                    onPress={() => handleSubmit()} disabled={loading}
-                  >
-                    {loading ? <ActivityIndicator color="#FFF" /> : <Text style={s.saveBtnText}>Save Changes</Text>}
-                  </Pressable>
-                </View>
-              )}
-            </Formik>
-          </View>
+                <Pressable
+                  style={({ pressed }) => [s.saveBtn, pressed && s.saveBtnPressed]}
+                  onPress={() => handleSubmit()}
+                  disabled={loading}
+                >
+                  {loading
+                    ? <ActivityIndicator color="#FFFFFF" />
+                    : <Text style={s.saveBtnText}>Save Changes</Text>
+                  }
+                </Pressable>
+              </View>
+            )}
+          </Formik>
+
+          <View style={{ height: 40 }} />
         </ScrollView>
       </TouchableWithoutFeedback>
     </KeyboardAvoidingView>
@@ -146,39 +209,160 @@ export default function EditProfileScreen({ navigation }: any) {
 }
 
 const s = StyleSheet.create({
-  container: { flex: 1, backgroundColor: COLORS.white },
+  root: {
+    flex: 1,
+    backgroundColor: '#F5F5F5',
+  },
+
+  /* ── Header ── */
   header: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingTop: 52, paddingBottom: 14, paddingHorizontal: 16,
-    borderBottomWidth: 1, borderBottomColor: COLORS.border,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#111827',
+    paddingTop: 52,
+    paddingBottom: 16,
+    paddingHorizontal: 16,
   },
-  backBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: COLORS.background, alignItems: 'center', justifyContent: 'center' },
-  backBtnText: { fontSize: 22, color: COLORS.text },
-  headerTitle: { fontSize: 16, fontWeight: FONTS.bold, color: COLORS.text },
-  body: { padding: 20 },
-  avatarWrap: { alignItems: 'center', marginBottom: 28 },
-  avatar: {
-    width: 80, height: 80, borderRadius: 40,
-    backgroundColor: COLORS.primaryLight, alignItems: 'center', justifyContent: 'center',
-    marginBottom: 10,
+  backBtn: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: '#1F2937',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  avatarName: { fontSize: 16, fontWeight: FONTS.bold, color: COLORS.text },
-  avatarEmail: { fontSize: 13, color: COLORS.textSecondary, marginTop: 2 },
-  form: {},
-  field: { marginBottom: 16 },
-  label: { fontSize: 13, fontWeight: FONTS.semiBold, color: COLORS.text, marginBottom: 8 },
-  req: { color: COLORS.error },
-  inputWrap: {
-    borderWidth: 1.5, borderColor: COLORS.borderDark, borderRadius: RADIUS.md,
-    backgroundColor: COLORS.background, paddingHorizontal: 14, justifyContent: 'center',
-    minHeight: 48,
+  backBtnPressed: {
+    opacity: 0.6,
   },
-  inputWrapError: { borderColor: COLORS.error, backgroundColor: COLORS.errorLight },
-  input: { fontSize: 14, color: COLORS.text, paddingVertical: 10 },
-  errorText: { fontSize: 12, color: COLORS.error, marginTop: 4 },
+  backBtnText: {
+    fontSize: 24,
+    color: '#FFFFFF',
+    lineHeight: 28,
+  },
+  headerTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    letterSpacing: 0.3,
+  },
+
+  /* ── Avatar section ── */
+  avatarSection: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#1F2937',
+    paddingHorizontal: 20,
+    paddingVertical: 20,
+    gap: 16,
+  },
+  avatarCircle: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: '#FFFFFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
+  },
+  avatarInitial: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: '#111827',
+  },
+  avatarMeta: {
+    flex: 1,
+    minWidth: 0,
+  },
+  avatarName: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    marginBottom: 3,
+  },
+  avatarEmail: {
+    fontSize: 13,
+    color: '#9CA3AF',
+  },
+
+  /* ── Section label above form ── */
+  sectionLabel: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#6B7280',
+    letterSpacing: 1.4,
+    textTransform: 'uppercase',
+    marginTop: 24,
+    marginBottom: 8,
+    marginHorizontal: 16,
+  },
+
+  /* ── Form ── */
+  form: {
+    paddingHorizontal: 16,
+    gap: 12,
+  },
+  fieldWrap: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    paddingHorizontal: 16,
+    paddingTop: 13,
+    paddingBottom: 12,
+  },
+  label: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#9CA3AF',
+    letterSpacing: 1.2,
+    marginBottom: 6,
+    textTransform: 'uppercase',
+  },
+  req: {
+    color: '#E63946',
+  },
+  inputBox: {
+    borderBottomWidth: 1,
+    borderBottomColor: '#F3F4F6',
+  },
+  inputBoxError: {
+    borderBottomColor: '#E63946',
+  },
+  input: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#111827',
+    paddingVertical: 6,
+    minHeight: 36,
+  },
+  inputMultiline: {
+    minHeight: 72,
+    paddingTop: 6,
+  },
+  errorText: {
+    fontSize: 11,
+    color: '#E63946',
+    marginTop: 6,
+    fontWeight: '500',
+  },
+
+  /* ── Save button ── */
   saveBtn: {
-    backgroundColor: COLORS.primary, borderRadius: RADIUS.md,
-    height: 50, alignItems: 'center', justifyContent: 'center', marginTop: 8,
+    backgroundColor: '#111827',
+    borderRadius: 14,
+    height: 52,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 8,
   },
-  saveBtnText: { color: COLORS.white, fontSize: 15, fontWeight: FONTS.bold },
+  saveBtnPressed: {
+    opacity: 0.85,
+  },
+  saveBtnText: {
+    color: '#FFFFFF',
+    fontSize: 15,
+    fontWeight: '700',
+    letterSpacing: 0.3,
+  },
 });
