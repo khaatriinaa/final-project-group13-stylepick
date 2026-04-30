@@ -267,7 +267,7 @@ export const cancelOrder = async (orderId: string, sellerId: string): Promise<vo
     .single();
 
   if (statusError || !statusData) {
-    throw new Error('Could not fetch order status. Please check your connection and try again.');
+    throw new Error('Could not fetch order status...');  // ← this is what's showing
   }
 
   const currentStatus = statusData.status as OrderStatus;
