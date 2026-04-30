@@ -40,17 +40,19 @@ const BANNER_SLIDES = [
   { id: 'slide-2', headline: 'BEST\nVALUE\nTODAY',      cta: 'Grab Deals', accent: '#42F5A2', thumbOffset: 2 },
 ];
 
+// ─── Category Circles ─────────────────────────────────────────────────────────
+// These values must match exactly what sellers set as `product.category`
+// (i.e. the FASHION_CATEGORIES from AddProductScreen):
+// 'Dress' | 'Tops' | 'Bottoms' | 'Footwear' | 'Outerwear' | 'Accessories' | 'Bags' | 'Activewear'
 const CAT_CIRCLES = [
-  { label: 'Women',   emoji: '👗' },
-  { label: 'Curve',   emoji: '🌸' },
-  { label: 'Kids',    emoji: '🧒' },
-  { label: 'Men',     emoji: '👔' },
-  { label: 'Sports',  emoji: '🏃' },
-  { label: 'Jewelry', emoji: '💎' },
-  { label: 'Tops',    emoji: '👕' },
-  { label: 'Baby',    emoji: '🍼' },
-  { label: 'Beach',   emoji: '👙' },
-  { label: 'Shoes',   emoji: '👠' },
+  { label: 'Dress',       emoji: '👗' },
+  { label: 'Tops',        emoji: '👕' },
+  { label: 'Bottoms',     emoji: '👖' },
+  { label: 'Footwear',    emoji: '👟' },
+  { label: 'Outerwear',   emoji: '🧥' },
+  { label: 'Accessories', emoji: '💍' },
+  { label: 'Bags',        emoji: '👜' },
+  { label: 'Activewear',  emoji: '🩱' },
 ];
 
 // ─── SVG Icons ────────────────────────────────────────────────────────────────
@@ -424,11 +426,7 @@ export default function BuyerHomeScreen({ navigation }: BuyerHomeScreenProps) {
   const gridOffset     = useRef<number>(0);
   const cartScale      = useRef(new Animated.Value(1)).current;
 
-  // ── FIX: derive a stable Set of favorited IDs from the favorites array ────
-  // By putting this Set in useCallback deps, renderProduct re-creates itself
-  // (and thus re-renders each card) whenever the favorites list changes.
-  // Without this, the memoized renderProduct captured a stale isFavorite
-  // closure and cards never updated their heart icon after the first render.
+  // Derive a stable Set of favorited IDs from the favorites array
   const favoriteIds = useMemo(
     () => new Set(favorites.map((f) => f.id)),
     [favorites],
@@ -472,15 +470,17 @@ export default function BuyerHomeScreen({ navigation }: BuyerHomeScreenProps) {
 
   const filtered = sortProducts(
     allProducts.filter((p) => {
-      const matchCat    = activeCategory === 'All' || p.category.toLowerCase() === activeCategory.toLowerCase();
-      const matchSearch = !searchQuery.trim() || p.name.toLowerCase().includes(searchQuery.toLowerCase());
+      // Case-insensitive match against product.category
+      const matchCat    = activeCategory === 'All'
+        || p.category.toLowerCase() === activeCategory.toLowerCase();
+      const matchSearch = !searchQuery.trim()
+        || p.name.toLowerCase().includes(searchQuery.toLowerCase());
       const matchSub    = activeSubTab === 'New In' ? isNewProduct(p) : true;
       return matchCat && matchSearch && matchSub;
     }),
     sortKey,
   );
 
-  // ── FIX: favoriteIds (not isFavorite) is the dep that changes on toggle ──
   const renderProduct = useCallback(({ item }: { item: Product }) => (
     <ProductCard
       item={item}
@@ -530,22 +530,44 @@ export default function BuyerHomeScreen({ navigation }: BuyerHomeScreenProps) {
         onProductPress={(id) => stackNav.navigate('ProductDetail', { productId: id })}
       />
 
+      {/* Category circles — now maps directly to FASHION_CATEGORIES */}
       <View style={styles.catCirclesWrap}>
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={styles.catCirclesContent}
         >
+          {/* "All" pill first */}
+          <Pressable
+            style={styles.catCircleItem}
+            onPress={() => setActiveCategory('All')}
+          >
+            <View style={[styles.catCircle, activeCategory === 'All' && styles.catCircleActive]}>
+              <Text style={styles.catCircleEmoji}>🛍️</Text>
+            </View>
+            <Text style={[styles.catCircleLabel, activeCategory === 'All' && styles.catCircleLabelActive]}>
+              All
+            </Text>
+          </Pressable>
+
           {CAT_CIRCLES.map((cat) => (
             <Pressable
               key={cat.label}
               style={styles.catCircleItem}
-              onPress={() => setActiveCategory(cat.label === activeCategory ? 'All' : cat.label)}
+              onPress={() =>
+                setActiveCategory(activeCategory === cat.label ? 'All' : cat.label)
+              }
             >
-              <View style={[styles.catCircle, activeCategory === cat.label && styles.catCircleActive]}>
+              <View style={[
+                styles.catCircle,
+                activeCategory === cat.label && styles.catCircleActive,
+              ]}>
                 <Text style={styles.catCircleEmoji}>{cat.emoji}</Text>
               </View>
-              <Text style={[styles.catCircleLabel, activeCategory === cat.label && styles.catCircleLabelActive]}>
+              <Text style={[
+                styles.catCircleLabel,
+                activeCategory === cat.label && styles.catCircleLabelActive,
+              ]}>
                 {cat.label}
               </Text>
             </Pressable>
@@ -569,6 +591,9 @@ export default function BuyerHomeScreen({ navigation }: BuyerHomeScreenProps) {
       <View style={styles.statusRow}>
         <Text style={styles.statusCount}>
           Showing <Text style={styles.statusCountBold}>{filtered.length} items</Text>
+          {activeCategory !== 'All' && (
+            <Text style={styles.statusCountBold}> in {activeCategory}</Text>
+          )}
         </Text>
         <Pressable style={styles.sortBtn} onPress={() => setSortOpen(true)}>
           <SortIcon size={12} color={C.textSecond} />
@@ -688,7 +713,11 @@ export default function BuyerHomeScreen({ navigation }: BuyerHomeScreenProps) {
               <Text style={{ fontSize: 38 }}>👗</Text>
               <Text style={styles.emptyTitle}>No products found</Text>
               <Text style={styles.emptyText}>
-                {searchQuery ? `No results for "${searchQuery}"` : 'Check back for new arrivals'}
+                {searchQuery
+                  ? `No results for "${searchQuery}"`
+                  : activeCategory !== 'All'
+                    ? `No items in ${activeCategory} yet`
+                    : 'Check back for new arrivals'}
               </Text>
             </View>
           }

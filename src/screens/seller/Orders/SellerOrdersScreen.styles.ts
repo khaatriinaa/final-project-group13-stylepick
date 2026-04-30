@@ -2,194 +2,301 @@
 import { StyleSheet, Platform } from 'react-native';
 
 export const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F4F4F4' },
+  container: { flex: 1, backgroundColor: '#F5F5F5' },
 
   // ── Header ────────────────────────────────────────────────────────────────
   header: {
     backgroundColor: '#FFFFFF',
-    paddingTop: Platform.OS === 'ios' ? 56 : 20,
-    paddingBottom: 0,
-    paddingHorizontal: 20,
+    paddingTop: Platform.OS === 'ios' ? 52 : 20,
+    borderBottomWidth: 0.5,
+    borderBottomColor: '#E5E7EB',
   },
   headerTop: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingBottom: 14,
+    paddingHorizontal: 16,
+    paddingBottom: 12,
   },
-  title: {
-    fontSize: 30,
-    fontWeight: '800',
-    color: '#111111',
-    letterSpacing: -0.8,
+  headerTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#111827',
   },
-  orderCount: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#FFFFFF',
-    backgroundColor: '#F97316',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 20,
-    overflow: 'hidden',
+  headerIcons: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  iconBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: '#F3F4F6',
+    alignItems: 'center',
+    justifyContent: 'center',
+    position: 'relative',
+  },
+  notifDot: {
+    position: 'absolute',
+    top: 10,
+    right: 11,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#EF4444',
+    borderWidth: 2,
+    borderColor: '#F3F4F6',
   },
 
-  // ── Filter pill tabs ──────────────────────────────────────────────────────
-  filterWrapper: {
-    backgroundColor: '#FFFFFF',
-    borderBottomWidth: 1,
-    borderBottomColor: '#EEEEEE',
-  },
-  filterRow: {
+  // ── Pill tabs ─────────────────────────────────────────────────────────────
+  tabsRow: {
     flexDirection: 'row',
-    paddingHorizontal: 16,
+    paddingHorizontal: 12,
     paddingVertical: 10,
     gap: 8,
   },
-  filterTab: {
+  tab: {
     paddingHorizontal: 14,
     paddingVertical: 7,
     borderRadius: 22,
-    backgroundColor: '#F2F2F2',
+    backgroundColor: '#F3F4F6',
   },
-  filterTabActive: {
-    backgroundColor: '#FFF5EE',
-    borderWidth: 1.5,
-    borderColor: '#F97316',
+  tabActive: {
+    backgroundColor: '#111827',
   },
-  filterTabText: { fontSize: 13, fontWeight: '600', color: '#666666' },
-  filterTabTextActive: { color: '#F97316' },
+  tabInner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+  },
+  tabText: {
+    fontSize: 13,
+    fontWeight: '500',
+    color: '#9CA3AF',
+  },
+  tabTextActive: {
+    color: '#FFFFFF',
+    fontWeight: '600',
+  },
+  tabBadge: {
+    minWidth: 16,
+    height: 16,
+    borderRadius: 8,
+    backgroundColor: '#E5E7EB',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 4,
+  },
+  tabBadgeActive: {
+    backgroundColor: '#FFFFFF',
+  },
+  tabBadgeText: {
+    fontSize: 9,
+    fontWeight: '700',
+    color: '#9CA3AF',
+  },
+  tabBadgeTextActive: {
+    color: '#111827',
+  },
 
   // ── List ──────────────────────────────────────────────────────────────────
-  flatList: { flex: 1 },
-  list: { padding: 14, paddingBottom: 30 },
+  list: { padding: 12, gap: 10 },
 
-  // ── Order card ────────────────────────────────────────────────────────────
-  orderCard: {
+  // ── Card ──────────────────────────────────────────────────────────────────
+  card: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    marginBottom: 12,
+    borderRadius: 12,
+    borderWidth: 0.5,
+    borderColor: '#E5E7EB',
     overflow: 'hidden',
-    shadowColor: '#000',
-    shadowOpacity: 0.06,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 2 },
-    elevation: 3,
+  },
+  cardPressed: { opacity: 0.8 },
+  cardCancelled: {
+    opacity: 0.82,
+    borderColor: '#FECACA',
+    borderWidth: 1,
   },
 
   // Card header
   cardHeader: {
     flexDirection: 'row',
+    alignItems: 'center',
     justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 14,
-    paddingVertical: 11,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F5F5F5',
-  },
-  orderId: { fontSize: 13, fontWeight: '800', color: '#111111', letterSpacing: 0.3 },
-  orderDate: { fontSize: 11, color: '#AAAAAA', marginTop: 1 },
-  statusBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderRadius: 20,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    gap: 5,
-  },
-  statusDot: { width: 7, height: 7, borderRadius: 4 },
-  statusText: { fontSize: 12, fontWeight: '700' },
-
-  // Item preview strip
-  itemsStrip: {
-    flexDirection: 'row',
-    alignItems: 'center',
     paddingHorizontal: 14,
     paddingVertical: 10,
-    gap: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F5F5F5',
+    borderBottomWidth: 0.5,
+    borderBottomColor: '#F3F4F6',
   },
-  itemThumb: {
-    width: 48,
-    height: 48,
-    borderRadius: 10,
-    backgroundColor: '#F0F0F0',
+  orderId: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: '#6B7280',
+    letterSpacing: 0.3,
+  },
+  badge: {
+    borderRadius: 20,
+    paddingHorizontal: 9,
+    paddingVertical: 3,
+  },
+  badgeText: {
+    fontSize: 11,
+    fontWeight: '500',
+  },
+
+  // Card body
+  cardBody: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+  },
+  productImg: {
+    width: 52,
+    height: 52,
+    borderRadius: 8,
+    backgroundColor: '#F3F4F6',
+    borderWidth: 0.5,
+    borderColor: '#E5E7EB',
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
     overflow: 'hidden',
   },
-  itemThumbImage: { width: 48, height: 48 },
-  itemThumbPlaceholder: {
-    width: 48,
-    height: 48,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#F0F0F0',
-  },
-  itemThumbPlaceholderText: { fontSize: 20 },
-  itemsInfo: { flex: 1 },
-  itemsNames: {
+  productImgImage: { width: 52, height: 52 },
+  productImgPlaceholder: { fontSize: 22 },
+  productInfo: { flex: 1, minWidth: 0 },
+  productName: {
     fontSize: 13,
-    fontWeight: '600',
-    color: '#222222',
-    lineHeight: 18,
+    fontWeight: '500',
+    color: '#111827',
+    marginBottom: 3,
   },
-  itemsSubtext: { fontSize: 11, color: '#AAAAAA', marginTop: 2 },
-  moreItemsBadge: {
-    width: 48,
-    height: 48,
-    borderRadius: 10,
-    backgroundColor: '#F5F5F5',
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: '#EEEEEE',
-  },
-  moreItemsText: { fontSize: 11, fontWeight: '700', color: '#888888' },
+  productMeta: { fontSize: 12, color: '#9CA3AF' },
 
-  // Card footer / amount + actions
+  // Variant chip
+  variantChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F9FAFB',
+    borderRadius: 4,
+    borderWidth: 0.5,
+    borderColor: '#E5E7EB',
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+    alignSelf: 'flex-start',
+    gap: 5,
+    marginTop: 3,
+    marginBottom: 3,
+  },
+  variantDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#374151',
+  },
+  variantText: {
+    fontSize: 11,
+    color: '#374151',
+    fontWeight: '500',
+  },
+
+  // Card footer
   cardFooter: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
     paddingHorizontal: 14,
-    paddingVertical: 11,
+    paddingVertical: 10,
+    borderTopWidth: 0.5,
+    borderTopColor: '#F3F4F6',
+  },
+  orderDate: { fontSize: 12, color: '#9CA3AF' },
+  footerRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: 8,
   },
-  amountWrap: { flex: 1 },
-  amount: { fontSize: 18, fontWeight: '800', color: '#111111' },
-  codLabel: { fontSize: 11, color: '#AAAAAA', marginTop: 1 },
-
-  actionBtn: {
-    paddingVertical: 9,
-    paddingHorizontal: 14,
-    borderRadius: 10,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#F5F5F5',
-    borderWidth: 1,
-    borderColor: '#EBEBEB',
+  orderTotal: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#111827',
+    flexShrink: 0,
   },
-  actionBtnPrimary: { backgroundColor: '#F97316', borderColor: '#F97316' },
-  actionBtnDanger: { backgroundColor: '#FFE5E5', borderColor: 'rgba(220,38,38,0.2)' },
-  actionBtnPressed: { opacity: 0.82 },
-  actionBtnText: { fontSize: 12, fontWeight: '700', color: '#555555' },
-  actionBtnTextPrimary: { color: '#FFFFFF' },
-  actionBtnTextDanger: { color: '#CC0000' },
 
-  viewBtn: {
-    paddingVertical: 9,
-    paddingHorizontal: 14,
-    borderRadius: 10,
-    backgroundColor: '#F5F5F5',
-    borderWidth: 1,
-    borderColor: '#EBEBEB',
-    alignItems: 'center',
-    justifyContent: 'center',
+  // Primary action button (Confirm / Preparing / Shipped / Delivered)
+  actionBtnPrimary: {
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    borderRadius: 6,
+    backgroundColor: '#374151',
   },
-  viewBtnText: { fontSize: 12, fontWeight: '700', color: '#555555' },
+  actionBtnPrimaryText: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: '#FFFFFF',
+  },
+
+  // Danger action button (Cancel)
+  actionBtnDanger: {
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    borderRadius: 6,
+    backgroundColor: '#FEE2E2',
+    borderWidth: 1,
+    borderColor: '#FECACA',
+  },
+  actionBtnDangerText: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: '#991B1B',
+  },
+
+  // Details button
+  detailsBtn: {
+    paddingHorizontal: 14,
+    paddingVertical: 5,
+    borderRadius: 6,
+    backgroundColor: '#111827',
+  },
+  detailsBtnPressed: { opacity: 0.75 },
+  detailsBtnCancelled: { backgroundColor: '#9CA3AF' },
+  detailsBtnText: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: '#FFFFFF',
+  },
 
   // ── Empty state ───────────────────────────────────────────────────────────
-  emptyWrap: { alignItems: 'center', paddingTop: 80 },
-  emptyIcon: { fontSize: 48 },
-  emptyTitle: { fontSize: 16, fontWeight: '700', color: '#222222', marginTop: 14 },
-  emptyText: { fontSize: 13, color: '#888888', marginTop: 5, textAlign: 'center', paddingHorizontal: 40 },
+  emptyWrap: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingTop: 48,
+    paddingHorizontal: 32,
+  },
+  emptyIconWrap: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: '#F3F4F6',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 16,
+  },
+  emptyIcon: { fontSize: 24 },
+  emptyTitle: {
+    fontSize: 15,
+    fontWeight: '500',
+    color: '#111827',
+    marginBottom: 6,
+    textAlign: 'center',
+  },
+  emptyText: {
+    fontSize: 13,
+    color: '#9CA3AF',
+    lineHeight: 20,
+    textAlign: 'center',
+  },
 });

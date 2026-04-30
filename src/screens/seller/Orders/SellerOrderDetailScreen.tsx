@@ -12,23 +12,29 @@ import { getOrderById, updateOrderStatus } from '../../../services/orderService'
 import { useAuth } from '../../../context/AuthContext';
 import { detailStyles as styles } from './SellerOrderDetailScreen.styles';
 
-// ── Unified resolvers (mirrors dashboard logic) ────────────────────────────
+// ── Unified resolvers ──────────────────────────────────────────────────────
 const resolveItemImage = (item: Order['items'][number]): string | undefined =>
   item.image ?? item.product?.images?.[0] ?? undefined;
 
 const resolveItemName = (item: Order['items'][number]): string =>
   item.productName ?? item.product?.name ?? item.name ?? 'Item';
 
+const resolveItemPrice = (item: Order['items'][number]): number =>
+  item.price ?? item.product?.price ?? 0;
+
+const resolveItemQty = (item: Order['items'][number]): number =>
+  item.quantity ?? 1;
+
 // ── Status timeline definition ─────────────────────────────────────────────
 const STATUS_FLOW: OrderStatus[] = ['pending', 'confirmed', 'preparing', 'shipped', 'delivered'];
 
-const STATUS_META: Record<string, { label: string; sub: string; dot: string }> = {
-  pending:   { label: 'Pending',   sub: 'Waiting for seller confirmation', dot: '#F97316' },
-  confirmed: { label: 'Confirmed', sub: 'Order accepted by seller',        dot: '#3B82F6' },
-  preparing: { label: 'Preparing', sub: 'Seller is packing the order',     dot: '#8B5CF6' },
-  shipped:   { label: 'Shipped',   sub: 'Package is on the way',           dot: '#06B6D4' },
-  delivered: { label: 'Delivered', sub: 'Order received by buyer',         dot: '#22C55E' },
-  cancelled: { label: 'Cancelled', sub: 'This order was cancelled',        dot: '#F43F5E' },
+const STATUS_META: Record<string, { label: string; sub: string }> = {
+  pending:   { label: 'Pending',   sub: 'Waiting for seller confirmation' },
+  confirmed: { label: 'Confirmed', sub: 'Order accepted by seller'        },
+  preparing: { label: 'Preparing', sub: 'Seller is packing the order'     },
+  shipped:   { label: 'Shipped',   sub: 'Package is on the way'           },
+  delivered: { label: 'Delivered', sub: 'Order received by buyer'         },
+  cancelled: { label: 'Cancelled', sub: 'This order was cancelled'        },
 };
 
 const NEXT_STATUS: Partial<Record<OrderStatus, OrderStatus>> = {
@@ -45,22 +51,22 @@ const NEXT_LABEL: Partial<Record<OrderStatus, string>> = {
   shipped:   'Mark as Delivered',
 };
 
-const HERO_STATUS_STYLE: Record<string, { bg: string; dot: string; text: string }> = {
-  pending:   { bg: '#FFF7ED', dot: '#F97316', text: '#C2410C' },
-  confirmed: { bg: '#EFF6FF', dot: '#3B82F6', text: '#1D4ED8' },
-  preparing: { bg: '#F5F3FF', dot: '#8B5CF6', text: '#6D28D9' },
-  shipped:   { bg: '#ECFEFF', dot: '#06B6D4', text: '#0E7490' },
-  delivered: { bg: '#F0FDF4', dot: '#22C55E', text: '#15803D' },
-  cancelled: { bg: '#FFF1F2', dot: '#F43F5E', text: '#BE123C' },
+const STATUS_BADGE_STYLE: Record<string, { bg: string; text: string }> = {
+  pending:   { bg: '#FFFBEB', text: '#92400E' },
+  confirmed: { bg: '#EEF2FF', text: '#3730A3' },
+  preparing: { bg: '#EEF2FF', text: '#3730A3' },
+  shipped:   { bg: '#ECFDF5', text: '#065F46' },
+  delivered: { bg: '#DCFCE7', text: '#14532D' },
+  cancelled: { bg: '#FEF2F2', text: '#991B1B' },
 };
 
 type RouteT = RouteProp<SellerStackParamList, 'SellerOrderDetail'>;
 
 export default function SellerOrderDetailScreen() {
-  const navigation = useNavigation<NativeStackNavigationProp<SellerStackParamList>>();
-  const route      = useRoute<RouteT>();
+  const navigation  = useNavigation<NativeStackNavigationProp<SellerStackParamList>>();
+  const route       = useRoute<RouteT>();
   const { orderId } = route.params;
-  const { user }   = useAuth();
+  const { user }    = useAuth();
 
   const [order, setOrder]     = useState<Order | null>(null);
   const [loading, setLoading] = useState(true);
@@ -124,7 +130,7 @@ export default function SellerOrderDetailScreen() {
   if (loading) {
     return (
       <View style={[styles.container, { alignItems: 'center', justifyContent: 'center' }]}>
-        <ActivityIndicator size="large" color="#F97316" />
+        <ActivityIndicator size="large" color="#111827" />
       </View>
     );
   }
@@ -132,12 +138,12 @@ export default function SellerOrderDetailScreen() {
   if (!order) {
     return (
       <View style={[styles.container, { alignItems: 'center', justifyContent: 'center' }]}>
-        <Text style={{ fontSize: 16, color: '#888888' }}>Order not found.</Text>
+        <Text style={{ fontSize: 16, color: '#9CA3AF' }}>Order not found.</Text>
       </View>
     );
   }
 
-  const heroStyle   = HERO_STATUS_STYLE[order.status] ?? HERO_STATUS_STYLE.pending;
+  const badge       = STATUS_BADGE_STYLE[order.status] ?? { bg: '#F3F4F6', text: '#6B7280' };
   const nextStatus  = NEXT_STATUS[order.status];
   const nextLabel   = NEXT_LABEL[order.status];
   const isCancelled = order.status === 'cancelled';
@@ -152,14 +158,14 @@ export default function SellerOrderDetailScreen() {
     ? timelineSteps.length - 1
     : STATUS_FLOW.indexOf(order.status);
 
-  const subtotal = order.items.reduce((sum, i) => sum + (i.price ?? 0) * (i.quantity ?? 1), 0);
+  const subtotal = order.items.reduce((sum, i) => sum + resolveItemPrice(i) * resolveItemQty(i), 0);
   const shipping  = order.shippingFee ?? 0;
 
   return (
     <View style={styles.container}>
       <ScrollView showsVerticalScrollIndicator={false} bounces>
 
-        {/* ── Dark hero header ── */}
+        {/* ── Hero header ── */}
         <View style={styles.hero}>
           <Pressable style={styles.heroBack} onPress={() => navigation.goBack()}>
             <Text style={styles.heroBackText}>‹ Orders</Text>
@@ -167,23 +173,24 @@ export default function SellerOrderDetailScreen() {
 
           <View style={styles.heroRow}>
             <View>
-              <Text style={styles.heroOrderId}>#{order.id.slice(0, 8).toUpperCase()}</Text>
+              <Text style={styles.heroOrderId}>
+                Order #{order.id.slice(0, 12).toUpperCase()}
+              </Text>
               <Text style={styles.heroDate}>
                 {new Date(order.createdAt).toLocaleDateString('en-PH', {
                   weekday: 'short', month: 'long', day: 'numeric', year: 'numeric',
                 })}
               </Text>
             </View>
-            <View>
+            <View style={styles.heroAmountWrap}>
               <Text style={styles.heroAmount}>₱{order.totalAmount.toLocaleString()}</Text>
               <Text style={styles.heroAmountLabel}>Total Amount</Text>
             </View>
           </View>
 
           <View style={styles.heroBadgeWrap}>
-            <View style={[styles.heroBadge, { backgroundColor: heroStyle.bg }]}>
-              <View style={[styles.heroBadgeDot, { backgroundColor: heroStyle.dot }]} />
-              <Text style={[styles.heroBadgeText, { color: heroStyle.text }]}>
+            <View style={[styles.heroBadge, { backgroundColor: badge.bg }]}>
+              <Text style={[styles.heroBadgeText, { color: badge.text }]}>
                 {order.status.charAt(0).toUpperCase() + order.status.slice(1)}
               </Text>
             </View>
@@ -206,7 +213,7 @@ export default function SellerOrderDetailScreen() {
                   <View style={styles.timelineLeft}>
                     {isCxStep ? (
                       <View style={styles.timelineNodeCancelled}>
-                        <Text style={[styles.timelineNodeText, { color: '#F43F5E' }]}>✕</Text>
+                        <Text style={styles.timelineNodeText}>✕</Text>
                       </View>
                     ) : isDone ? (
                       <View style={styles.timelineNodeDone}>
@@ -223,7 +230,7 @@ export default function SellerOrderDetailScreen() {
                   <View style={styles.timelineContent}>
                     <Text style={[
                       styles.timelineLabel,
-                      isDone && styles.timelineLabelDone,
+                      isDone   && styles.timelineLabelDone,
                       isActive && styles.timelineLabelActive,
                     ]}>
                       {meta.label}
@@ -237,7 +244,10 @@ export default function SellerOrderDetailScreen() {
                 {!isLast && (
                   <View style={styles.timelineRow}>
                     <View style={styles.timelineLeft}>
-                      <View style={[styles.timelineConnector, isDone && styles.timelineConnectorDone]} />
+                      <View style={[
+                        styles.timelineConnector,
+                        isDone && styles.timelineConnectorDone,
+                      ]} />
                     </View>
                     <View style={{ flex: 1 }} />
                   </View>
@@ -256,10 +266,15 @@ export default function SellerOrderDetailScreen() {
             </Text>
           </View>
           {order.items.map((item, idx) => {
-            const imageUri  = resolveItemImage(item);
-            const itemName  = resolveItemName(item);
+            const imageUri = resolveItemImage(item);
+            const itemName = resolveItemName(item);
+            const price    = resolveItemPrice(item);
+            const qty      = resolveItemQty(item);
             return (
-              <View key={idx} style={styles.itemRow}>
+              <View key={idx} style={[
+                styles.itemRow,
+                idx === order.items.length - 1 && { borderBottomWidth: 0 },
+              ]}>
                 <View style={styles.itemImage}>
                   {imageUri ? (
                     <Image source={{ uri: imageUri }} style={styles.itemImageActual} resizeMode="cover" />
@@ -270,24 +285,22 @@ export default function SellerOrderDetailScreen() {
                   )}
                 </View>
                 <View style={styles.itemInfo}>
-                  <Text style={styles.itemName} numberOfLines={2}>
-                    {itemName}
-                  </Text>
+                  <Text style={styles.itemName} numberOfLines={2}>{itemName}</Text>
                   <Text style={styles.itemMeta}>
-                    Qty: {item.quantity ?? 1}
+                    Qty: {qty}
                     {item.color ? `  ·  ${item.color}` : ''}
                     {item.size  ? `  ·  ${item.size}`  : ''}
                   </Text>
                 </View>
                 <Text style={styles.itemPrice}>
-                  ₱{((item.price ?? 0) * (item.quantity ?? 1)).toLocaleString()}
+                  ₱{(price * qty).toLocaleString()}
                 </Text>
               </View>
             );
           })}
         </View>
 
-        {/* ── Shipping & Payment ── */}
+        {/* ── Delivery Info ── */}
         <View style={styles.sectionCard}>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>Delivery Info</Text>
@@ -316,7 +329,7 @@ export default function SellerOrderDetailScreen() {
             </View>
           )}
           {order.buyerPhone && (
-            <View style={styles.infoRow}>
+            <View style={[styles.infoRow, { borderBottomWidth: 0 }]}>
               <Text style={styles.infoIcon}>📞</Text>
               <View style={styles.infoBlock}>
                 <Text style={styles.infoLabel}>Contact</Text>
@@ -326,7 +339,7 @@ export default function SellerOrderDetailScreen() {
           )}
         </View>
 
-        {/* ── Order Summary / Totals ── */}
+        {/* ── Order Summary ── */}
         <View style={styles.sectionCard}>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>Order Summary</Text>

@@ -1,34 +1,81 @@
 // src/screens/seller/Dashboard/SellerDashboardScreen.styles.ts
-import { StyleSheet } from 'react-native';
-import { COLORS, FONTS, RADIUS, SHADOW } from '../../../theme';
+import { StyleSheet, Platform, StatusBar } from 'react-native';
+
+const STATUS_BAR_HEIGHT =
+  Platform.OS === 'android' ? (StatusBar.currentHeight ?? 24) : 44;
+
+// ─── Design tokens ────────────────────────────────────────────
+export const C = {
+  ink:         '#0F0E17',
+  inkSoft:     '#1A1927',
+  inkMid:      '#252438',
+  ivory:       '#FAF9F6',
+  ivoryDark:   '#F2F0EB',
+  white:       '#FFFFFF',
+  violet:      '#2D2B55',
+  border:      '#E8E4DC',
+  textPrimary: '#0F0E17',
+  textSecond:  '#5C5767',
+  textMuted:   '#9B95A5',
+  placeholder: '#B8B4C0',
+  amber:       '#FF8C00',
+  blue:        '#5B8DEF',
+  green:       '#28C76F',
+  red:         '#F0506E',
+};
+
+const RADIUS = {
+  sm: 8,
+  md: 10,
+  lg: 14,
+};
+
+const SHADOW = {
+  sm: {
+    shadowColor: C.ink,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.07,
+    shadowRadius: 6,
+    elevation: 3,
+  },
+  md: {
+    shadowColor: C.ink,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.13,
+    shadowRadius: 12,
+    elevation: 6,
+  },
+};
 
 export const styles = StyleSheet.create({
+
+  // ─── Root ─────────────────────────────────────────────────────────────────
   container: {
     flex: 1,
-    backgroundColor: '#F6F7FB',
+    backgroundColor: C.ink,
   },
 
-  // ─── Top Bar ─────────────────────────────────────────────────
+  // ─── Top Bar ──────────────────────────────────────────────────────────────
   topBar: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: '#fff',
-    paddingTop: 56,
-    paddingBottom: 16,
-    paddingHorizontal: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F0F0F0',
+    paddingTop: STATUS_BAR_HEIGHT + 10,
+    paddingBottom: 12,
+    paddingHorizontal: 16,
+    backgroundColor: C.ink,
+    gap: 10,
   },
 
-  // Avatar
+  // ─── Avatar ───────────────────────────────────────────────────────────────
   avatarBtn: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
+    width: 38,
+    height: 38,
+    borderRadius: 8,
     overflow: 'hidden',
-    borderWidth: 2,
-    borderColor: COLORS.primary,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.14)',
+    backgroundColor: C.inkMid,
+    flexShrink: 0,
   },
   avatarImage: {
     width: '100%',
@@ -37,110 +84,127 @@ export const styles = StyleSheet.create({
   avatarFallback: {
     width: '100%',
     height: '100%',
-    backgroundColor: COLORS.primaryLight ?? '#FFE5CC',
+    backgroundColor: C.inkMid,
     alignItems: 'center',
     justifyContent: 'center',
   },
   avatarInitials: {
-    fontSize: 15,
-    fontWeight: FONTS.bold,
-    color: COLORS.primary,
+    fontSize: 13,
+    fontWeight: '700',
+    color: C.white,
+    letterSpacing: -0.2,
   },
 
-  // Store name
+  // ─── Store identity ───────────────────────────────────────────────────────
+  storeIdentity: {
+    flex: 1,
+  },
+  storeDashboardLabel: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: 'rgba(255,255,255,0.40)',
+    letterSpacing: 0.8,
+    textTransform: 'uppercase',
+    marginBottom: 2,
+  },
   storeName: {
-    fontSize: 17,
-    fontWeight: FONTS.bold,
-    color: COLORS.text,
+    fontSize: 15,
+    fontWeight: '700',
+    color: C.white,
+    letterSpacing: -0.3,
+  },
+
+  // ─── Notification button ──────────────────────────────────────────────────
+  notifBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: 'rgba(255,255,255,0.07)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.12)',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  notifBtnText: {
+    fontSize: 12,
+    color: 'rgba(255,255,255,0.85)',
+    fontWeight: '600',
+    letterSpacing: 0.2,
+  },
+  notifCountBadge: {
+    backgroundColor: C.red,
+    borderRadius: 4,
+    paddingHorizontal: 6,
+    paddingVertical: 1,
+    minWidth: 18,
+    alignItems: 'center',
+  },
+  notifCountBadgeText: {
+    color: C.white,
+    fontSize: 10,
+    fontWeight: '700',
     letterSpacing: 0.2,
   },
 
-  // Bell
-  bellBtn: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
-    backgroundColor: '#F6F7FB',
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: '#EBEBEB',
+  // ─── KPI Strip ────────────────────────────────────────────────────────────
+  kpiStrip: {
+    flexDirection: 'row',
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: 'rgba(255,255,255,0.08)',
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: 'rgba(255,255,255,0.06)',
   },
-  bellIcon: {
-    fontSize: 18,
-  },
-  notifBadge: {
-    position: 'absolute',
-    top: 4,
-    right: 4,
-    minWidth: 17,
-    height: 17,
-    borderRadius: 9,
-    backgroundColor: '#F0506E',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 3,
-    borderWidth: 1.5,
-    borderColor: '#fff',
-  },
-  notifBadgeText: {
-    color: '#fff',
-    fontSize: 9,
-    fontWeight: FONTS.bold,
-    lineHeight: 13,
-  },
-
-  // ─── Body ─────────────────────────────────────────────────────
-  body: {
+  kpiItem: {
+    flex: 1,
+    paddingVertical: 14,
     paddingHorizontal: 16,
-    paddingTop: 20,
+    borderRightWidth: StyleSheet.hairlineWidth,
+    borderRightColor: 'rgba(255,255,255,0.06)',
   },
-
-  // ─── Stats Row ────────────────────────────────────────────────
-  statsRow: {
-    gap: 12,
-    paddingRight: 4,
-    paddingBottom: 4,
+  kpiItemLast: {
+    borderRightWidth: 0,
   },
-  statCard: {
-    width: 110,
-    borderRadius: RADIUS.lg,
-    padding: 14,
-    ...SHADOW.sm,
-  },
-  statIconWrap: {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 10,
-  },
-  statIcon: {
-    fontSize: 16,
-  },
-  statCardLabel: {
-    fontSize: 11,
-    color: COLORS.textSecondary,
-    fontWeight: FONTS.medium,
+  kpiLabel: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: 'rgba(255,255,255,0.40)',
+    letterSpacing: 0.8,
+    textTransform: 'uppercase',
     marginBottom: 3,
   },
-  statCardValue: {
-    fontSize: 22,
-    fontWeight: FONTS.extraBold,
-    color: COLORS.text,
+  kpiValue: {
+    fontSize: 24,
+    fontWeight: '800',
+    color: C.white,
+    letterSpacing: -0.5,
   },
 
-  // ─── Generic card ─────────────────────────────────────────────
+  // ─── Body ─────────────────────────────────────────────────────────────────
+  bodyShell: {
+    flex: 1,
+    backgroundColor: C.white,
+    borderTopLeftRadius: 14,
+    borderTopRightRadius: 14,
+    overflow: 'hidden',
+  },
+  body: {
+    paddingHorizontal: 14,
+    paddingTop: 18,
+  },
+
+  // ─── Generic card ─────────────────────────────────────────────────────────
   card: {
-    backgroundColor: '#fff',
+    backgroundColor: C.white,
     borderRadius: RADIUS.lg,
     padding: 16,
     marginTop: 4,
+    borderWidth: 1.5,
+    borderColor: C.border,
     ...SHADOW.sm,
   },
 
-  // ─── Card header ──────────────────────────────────────────────
+  // ─── Card header ──────────────────────────────────────────────────────────
   cardHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -149,56 +213,56 @@ export const styles = StyleSheet.create({
   },
   cardTitle: {
     fontSize: 15,
-    fontWeight: FONTS.bold,
-    color: COLORS.text,
+    fontWeight: '800',
+    color: C.textPrimary,
+    letterSpacing: -0.3,
   },
 
   // Period button
   periodBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: COLORS.primary,
+    backgroundColor: C.ink,
     borderRadius: 20,
-    paddingHorizontal: 14,
+    paddingHorizontal: 13,
     paddingVertical: 6,
     gap: 4,
   },
   periodBtnText: {
     fontSize: 12,
-    color: '#fff',
-    fontWeight: FONTS.semiBold,
+    color: C.white,
+    fontWeight: '600',
   },
   periodBtnArrow: {
     fontSize: 20,
-    color: '#fff',
+    color: C.white,
   },
 
   // Filter button (orders)
   filterBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F6F7FB',
+    backgroundColor: C.ivory,
     borderRadius: RADIUS.sm,
     paddingHorizontal: 10,
     paddingVertical: 6,
     gap: 4,
-    borderWidth: 1,
-    borderColor: COLORS.border,
+    borderWidth: 1.5,
+    borderColor: C.border,
     minWidth: 110,
   },
   filterBtnText: {
     fontSize: 12,
-    color: '#000000',
-    fontWeight: FONTS.medium,
+    color: C.textPrimary,
+    fontWeight: '600',
     flex: 1,
   },
-
   filterBtnArrow: {
-  fontSize: 20,
-  color:'#000000',
-},
+    fontSize: 20,
+    color: C.textPrimary,
+  },
 
-  // ─── Legend ───────────────────────────────────────────────────
+  // ─── Legend ───────────────────────────────────────────────────────────────
   legendRow: {
     flexDirection: 'row',
     gap: 16,
@@ -210,17 +274,17 @@ export const styles = StyleSheet.create({
     gap: 6,
   },
   legendDot: {
-    width: 10,
-    height: 10,
+    width: 9,
+    height: 9,
     borderRadius: 5,
   },
   legendText: {
     fontSize: 12,
-    color: COLORS.textSecondary,
-    fontWeight: FONTS.medium,
+    color: C.textMuted,
+    fontWeight: '500',
   },
 
-  // ─── Chart area ───────────────────────────────────────────────
+  // ─── Chart area ───────────────────────────────────────────────────────────
   chartArea: {
     flexDirection: 'row',
     gap: 8,
@@ -233,7 +297,7 @@ export const styles = StyleSheet.create({
   },
   yLabel: {
     fontSize: 9,
-    color: COLORS.textSecondary,
+    color: C.placeholder,
     textAlign: 'right',
   },
   xAxis: {
@@ -243,20 +307,20 @@ export const styles = StyleSheet.create({
   },
   xLabel: {
     fontSize: 10,
-    color: COLORS.textSecondary,
+    color: C.textMuted,
     textAlign: 'center',
     flex: 1,
   },
   xLabelActive: {
-    color: COLORS.primary,
-    fontWeight: FONTS.bold,
+    color: C.violet,
+    fontWeight: '800',
   },
 
   // Chart summary row
   chartSummary: {
     flexDirection: 'row',
-    borderTopWidth: 1,
-    borderTopColor: '#F0F0F0',
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: C.border,
     paddingTop: 14,
     marginTop: 4,
   },
@@ -265,37 +329,34 @@ export const styles = StyleSheet.create({
     alignItems: 'center',
   },
   chartSummaryBorder: {
-    borderLeftWidth: 1,
-    borderRightWidth: 1,
-    borderColor: '#F0F0F0',
+    borderLeftWidth: StyleSheet.hairlineWidth,
+    borderRightWidth: StyleSheet.hairlineWidth,
+    borderColor: C.border,
   },
   chartSummaryValue: {
     fontSize: 16,
-    fontWeight: FONTS.bold,
-    color: COLORS.text,
+    fontWeight: '800',
+    color: C.textPrimary,
+    letterSpacing: -0.3,
   },
   chartSummaryLabel: {
     fontSize: 11,
-    color: COLORS.textSecondary,
+    color: C.textMuted,
     marginTop: 2,
   },
 
-  // ─── Dropdown ─────────────────────────────────────────────────
+  // ─── Dropdown ─────────────────────────────────────────────────────────────
   dropdown: {
     position: 'absolute',
     top: 38,
     left: 0,
-    backgroundColor: '#fff',
+    backgroundColor: C.white,
     borderRadius: RADIUS.md,
-    borderWidth: 1,
-    borderColor: COLORS.border,
+    borderWidth: 1.5,
+    borderColor: C.border,
     minWidth: 160,
     zIndex: 999,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 8,
+    ...SHADOW.md,
   },
   dropdownRight: {
     left: undefined,
@@ -307,61 +368,64 @@ export const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: 14,
     paddingVertical: 11,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F5F5F5',
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: C.border,
   },
   dropdownItemActive: {
-    backgroundColor: COLORS.primaryLight ?? '#FFF3E8',
+    backgroundColor: C.ivory,
   },
   dropdownItemText: {
     fontSize: 13,
-    color: COLORS.text,
-    fontWeight: FONTS.medium,
+    color: C.textPrimary,
+    fontWeight: '500',
   },
   dropdownItemTextActive: {
-    color: COLORS.primary,
-    fontWeight: FONTS.semiBold,
+    color: C.violet,
+    fontWeight: '700',
   },
 
-  // ─── Section header ───────────────────────────────────────────
+  // ─── Section header ───────────────────────────────────────────────────────
   sectionHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginTop: 24,
+    marginTop: 22,
     marginBottom: 12,
     overflow: 'visible',
   },
   sectionTitle: {
     fontSize: 15,
-    fontWeight: FONTS.bold,
-    color: COLORS.text,
+    fontWeight: '800',
+    color: C.textPrimary,
+    letterSpacing: -0.3,
   },
   seeAll: {
     fontSize: 13,
-    color: COLORS.primary,
-    fontWeight: FONTS.semiBold,
+    color: C.violet,
+    fontWeight: '600',
   },
 
-  // ─── Product cards ────────────────────────────────────────────
+  // ─── Product cards ────────────────────────────────────────────────────────
   productScroll: {
-    gap: 12,
+    gap: 10,
     paddingRight: 4,
     paddingBottom: 4,
   },
   productCard: {
-    width: 120,
-    backgroundColor: '#fff',
+    width: 118,
+    backgroundColor: C.white,
     borderRadius: RADIUS.lg,
     padding: 10,
+    borderWidth: 1.5,
+    borderColor: C.border,
     ...SHADOW.sm,
   },
   productImageWrap: {
     width: '100%',
-    height: 100,
+    height: 98,
     borderRadius: RADIUS.md,
     overflow: 'hidden',
-    backgroundColor: '#F6F7FB',
+    backgroundColor: C.ivoryDark,
     marginBottom: 8,
     position: 'relative',
   },
@@ -378,34 +442,36 @@ export const styles = StyleSheet.create({
     position: 'absolute',
     top: 6,
     left: 6,
-    backgroundColor: 'rgba(0,0,0,0.55)',
-    borderRadius: 6,
+    backgroundColor: 'rgba(15,14,23,0.65)',
+    borderRadius: 5,
     paddingHorizontal: 5,
     paddingVertical: 2,
   },
   productRankText: {
     fontSize: 9,
-    color: '#fff',
-    fontWeight: FONTS.bold,
+    color: C.white,
+    fontWeight: '800',
+    letterSpacing: 0.3,
   },
   productName: {
     fontSize: 12,
-    fontWeight: FONTS.semiBold,
-    color: COLORS.text,
+    fontWeight: '600',
+    color: C.textSecond,
     marginBottom: 2,
   },
   productPrice: {
     fontSize: 13,
-    fontWeight: FONTS.bold,
-    color: COLORS.primary,
+    fontWeight: '900',
+    color: C.textPrimary,
+    letterSpacing: -0.3,
   },
   productSold: {
     fontSize: 10,
-    color: COLORS.textSecondary,
+    color: C.textMuted,
     marginTop: 1,
   },
 
-  // ─── Buyer rows ───────────────────────────────────────────────
+  // ─── Buyer rows ───────────────────────────────────────────────────────────
   buyerRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -413,14 +479,14 @@ export const styles = StyleSheet.create({
     paddingVertical: 11,
   },
   buyerRowBorder: {
-    borderBottomWidth: 1,
-    borderBottomColor: '#F5F5F5',
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: C.border,
   },
   buyerRank: {
     width: 24,
     height: 24,
     borderRadius: 12,
-    backgroundColor: '#F6F7FB',
+    backgroundColor: C.ivoryDark,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -429,42 +495,45 @@ export const styles = StyleSheet.create({
   },
   buyerRankText: {
     fontSize: 12,
-    fontWeight: FONTS.bold,
-    color: COLORS.textSecondary,
+    fontWeight: '700',
+    color: C.textMuted,
   },
   buyerAvatar: {
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: COLORS.primaryLight ?? '#FFE5CC',
+    backgroundColor: C.ivoryDark,
     alignItems: 'center',
     justifyContent: 'center',
+    borderWidth: 1.5,
+    borderColor: C.border,
   },
   buyerAvatarText: {
     fontSize: 13,
-    fontWeight: FONTS.bold,
-    color: COLORS.primary,
+    fontWeight: '800',
+    color: C.violet,
   },
   buyerInfo: {
     flex: 1,
   },
   buyerName: {
     fontSize: 13,
-    fontWeight: FONTS.semiBold,
-    color: COLORS.text,
+    fontWeight: '600',
+    color: C.textPrimary,
   },
   buyerOrders: {
     fontSize: 11,
-    color: COLORS.textSecondary,
+    color: C.textMuted,
     marginTop: 1,
   },
   buyerSpend: {
     fontSize: 14,
-    fontWeight: FONTS.bold,
-    color: COLORS.primary,
+    fontWeight: '900',
+    color: C.textPrimary,
+    letterSpacing: -0.3,
   },
 
-  // ─── Order rows ───────────────────────────────────────────────
+  // ─── Order rows ───────────────────────────────────────────────────────────
   orderRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -472,17 +541,19 @@ export const styles = StyleSheet.create({
     paddingVertical: 12,
   },
   orderRowBorder: {
-    borderBottomWidth: 1,
-    borderBottomColor: '#F5F5F5',
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: C.border,
   },
   orderThumb: {
     width: 48,
     height: 48,
     borderRadius: RADIUS.md,
-    backgroundColor: '#F6F7FB',
+    backgroundColor: C.ivoryDark,
     overflow: 'hidden',
     alignItems: 'center',
     justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: C.border,
   },
   orderThumbImage: {
     width: '100%',
@@ -493,62 +564,70 @@ export const styles = StyleSheet.create({
   },
   orderName: {
     fontSize: 13,
-    fontWeight: FONTS.semiBold,
-    color: COLORS.text,
+    fontWeight: '600',
+    color: C.textPrimary,
     marginBottom: 2,
   },
   orderMeta: {
     fontSize: 11,
-    color: COLORS.textSecondary,
+    color: C.textMuted,
     marginBottom: 4,
   },
   orderAmount: {
     fontSize: 14,
-    fontWeight: FONTS.bold,
-    color: COLORS.primary,
+    fontWeight: '900',
+    color: C.textPrimary,
+    letterSpacing: -0.3,
   },
 
-  // ─── Status badge ─────────────────────────────────────────────
+  // ─── Status badge ─────────────────────────────────────────────────────────
   statusBadge: {
     alignSelf: 'flex-start',
     paddingHorizontal: 8,
-    paddingVertical: 2,
+    paddingVertical: 3,
     borderRadius: 20,
   },
   statusBadgeText: {
     fontSize: 10,
-    fontWeight: FONTS.semiBold,
+    fontWeight: '700',
+    letterSpacing: 0.2,
   },
 
-  // ─── Empty states ─────────────────────────────────────────────
+  // ─── Empty states ─────────────────────────────────────────────────────────
   emptyCard: {
-    backgroundColor: '#fff',
+    backgroundColor: C.ivory,
     borderRadius: RADIUS.lg,
     padding: 32,
     alignItems: 'center',
+    borderWidth: 1.5,
+    borderColor: C.border,
     ...SHADOW.sm,
   },
   emptyTitle: {
     fontSize: 14,
-    fontWeight: FONTS.semiBold,
-    color: COLORS.text,
+    fontWeight: '700',
+    color: C.textPrimary,
     marginTop: 10,
+    letterSpacing: -0.2,
   },
   emptyText: {
     fontSize: 13,
-    color: COLORS.textSecondary,
+    color: C.textMuted,
     marginTop: 4,
     textAlign: 'center',
+    lineHeight: 19,
   },
   emptyInline: {
-    backgroundColor: '#fff',
+    backgroundColor: C.ivory,
     borderRadius: RADIUS.lg,
     padding: 20,
     alignItems: 'center',
+    borderWidth: 1.5,
+    borderColor: C.border,
     ...SHADOW.sm,
   },
   emptyInlineText: {
     fontSize: 13,
-    color: COLORS.textSecondary,
+    color: C.textMuted,
   },
 });

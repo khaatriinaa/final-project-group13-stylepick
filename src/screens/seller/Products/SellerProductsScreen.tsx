@@ -4,6 +4,7 @@ import {
   View, Text, FlatList, Pressable, RefreshControl,
   Alert, Image, TextInput, TouchableOpacity,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { SellerProductsScreenProps, SellerStackParamList } from '../../../props/props';
@@ -205,7 +206,9 @@ export default function SellerProductsScreen({ navigation }: SellerProductsScree
 
   const emptyComponent = (
     <View style={styles.emptyWrap}>
-      <Text style={styles.emptyIcon}>📦</Text>
+      <View style={{ width: 56, height: 56, borderRadius: 28, backgroundColor: '#F3F4F6', alignItems: 'center', justifyContent: 'center', marginBottom: 2 }}>
+        <Text style={styles.emptyIcon}>📦</Text>
+      </View>
       <Text style={styles.emptyTitle}>No products yet</Text>
       <Text style={styles.emptyText}>Tap "+" in the tab bar to add a listing</Text>
     </View>
@@ -220,7 +223,8 @@ export default function SellerProductsScreen({ navigation }: SellerProductsScree
           style={styles.iconBtn}
           onPress={() => { closeDropdowns(); stackNav.navigate('SellerNotifications'); }}
         >
-          <Text style={styles.iconBtnText}>🔔</Text>
+          <Ionicons name="notifications-outline" size={20} color="#374151" />
+          <View style={styles.notifDot} />
         </Pressable>
       </View>
 
@@ -230,15 +234,15 @@ export default function SellerProductsScreen({ navigation }: SellerProductsScree
           <Text style={styles.searchIcon}>🔍</Text>
           <TextInput
             style={styles.searchInput}
-            placeholder="Search"
-            placeholderTextColor="#AAAAAA"
+            placeholder="Search products"
+            placeholderTextColor="#9CA3AF"
             value={search}
             onChangeText={setSearch}
             onFocus={closeDropdowns}
           />
           {search.length > 0 && (
             <Pressable onPress={() => setSearch('')}>
-              <Text style={{ fontSize: 16, color: '#AAAAAA' }}>✕</Text>
+              <Text style={{ fontSize: 14, color: '#9CA3AF' }}>✕</Text>
             </Pressable>
           )}
         </View>
@@ -248,7 +252,7 @@ export default function SellerProductsScreen({ navigation }: SellerProductsScree
           style={[styles.iconSquare, viewMode === 'grid' && styles.iconSquareActive]}
           onPress={() => { closeDropdowns(); setViewMode('grid'); }}
         >
-          <Text style={styles.iconSquareText}>⊞</Text>
+          <Text style={[styles.iconSquareText, viewMode === 'grid' && { color: '#FFFFFF' }]}>⊞</Text>
         </Pressable>
 
         {/* List view button — active when viewMode is 'list' */}
@@ -256,7 +260,7 @@ export default function SellerProductsScreen({ navigation }: SellerProductsScree
           style={[styles.iconSquare, viewMode === 'list' && styles.iconSquareActive]}
           onPress={() => { closeDropdowns(); setViewMode('list'); }}
         >
-          <Text style={styles.iconSquareText}>☰</Text>
+          <Text style={[styles.iconSquareText, viewMode === 'list' && { color: '#FFFFFF' }]}>☰</Text>
         </Pressable>
       </View>
 
@@ -266,20 +270,24 @@ export default function SellerProductsScreen({ navigation }: SellerProductsScree
           style={[styles.filterChip, showStatusPicker && styles.filterChipActive]}
           onPress={() => { setShowStatusPicker(v => !v); setShowCategoryPicker(false); }}
         >
-          <Text style={styles.filterChipText}>
+          <Text style={[styles.filterChipText, showStatusPicker && { color: '#FFFFFF' }]}>
             Status{statusFilter !== 'All' ? ` · ${statusFilter}` : ''}
           </Text>
-          <Text style={styles.filterChipCaret}>{showStatusPicker ? '▴' : '▾'}</Text>
+          <Text style={[styles.filterChipCaret, showStatusPicker && { color: '#FFFFFF' }]}>
+            {showStatusPicker ? '▴' : '▾'}
+          </Text>
         </Pressable>
 
         <Pressable
           style={[styles.filterChip, showCategoryPicker && styles.filterChipActive]}
           onPress={() => { setShowCategoryPicker(v => !v); setShowStatusPicker(false); }}
         >
-          <Text style={styles.filterChipText}>
+          <Text style={[styles.filterChipText, showCategoryPicker && { color: '#FFFFFF' }]}>
             Category{categoryFilter !== 'All' ? ` · ${categoryFilter}` : ''}
           </Text>
-          <Text style={styles.filterChipCaret}>{showCategoryPicker ? '▴' : '▾'}</Text>
+          <Text style={[styles.filterChipCaret, showCategoryPicker && { color: '#FFFFFF' }]}>
+            {showCategoryPicker ? '▴' : '▾'}
+          </Text>
         </Pressable>
 
         {(statusFilter !== 'All' || categoryFilter !== 'All') && (
@@ -292,9 +300,9 @@ export default function SellerProductsScreen({ navigation }: SellerProductsScree
         )}
       </View>
 
-      {/* Dropdowns */}
+      {/* Dropdowns — rendered at root level so they float above all content */}
       {showStatusPicker && (
-        <Pressable onPress={(e) => e.stopPropagation()}>
+        <View style={styles.dropdownWrapper} pointerEvents="box-none">
           <View style={styles.dropdown}>
             {(['All', 'Active', 'Archived'] as StatusFilter[]).map(s => (
               <TouchableOpacity
@@ -305,16 +313,16 @@ export default function SellerProductsScreen({ navigation }: SellerProductsScree
                 <Text style={[styles.dropdownItemText, statusFilter === s && styles.dropdownItemTextActive]}>
                   {s}
                 </Text>
-                {statusFilter === s && <Text style={{ color: '#F97316', fontSize: 12 }}>✓</Text>}
+                {statusFilter === s && <Text style={{ color: '#111827', fontSize: 12 }}>✓</Text>}
               </TouchableOpacity>
             ))}
           </View>
-        </Pressable>
+        </View>
       )}
 
       {showCategoryPicker && (
-        <Pressable onPress={(e) => e.stopPropagation()}>
-          <View style={[styles.dropdown, { left: 130 }]}>
+        <View style={styles.dropdownWrapperCategory} pointerEvents="box-none">
+          <View style={styles.dropdown}>
             {categories.map(c => (
               <TouchableOpacity
                 key={c}
@@ -324,11 +332,11 @@ export default function SellerProductsScreen({ navigation }: SellerProductsScree
                 <Text style={[styles.dropdownItemText, categoryFilter === c && styles.dropdownItemTextActive]}>
                   {c}
                 </Text>
-                {categoryFilter === c && <Text style={{ color: '#F97316', fontSize: 12 }}>✓</Text>}
+                {categoryFilter === c && <Text style={{ color: '#111827', fontSize: 12 }}>✓</Text>}
               </TouchableOpacity>
             ))}
           </View>
-        </Pressable>
+        </View>
       )}
 
       {/* Product list — switches between list and grid */}
@@ -337,11 +345,11 @@ export default function SellerProductsScreen({ navigation }: SellerProductsScree
           key="list"
           data={filtered}
           keyExtractor={(item) => item.id}
-          contentContainerStyle={styles.list}
+          contentContainerStyle={[styles.list, filtered.length === 0 && { flexGrow: 1 }]}
           style={{ flex: 1 }}
           onScrollBeginDrag={closeDropdowns}
           refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} colors={['#F97316']} tintColor="#F97316" />
+            <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor="#111827" />
           }
           renderItem={renderListProduct}
           ListEmptyComponent={emptyComponent}
@@ -352,12 +360,12 @@ export default function SellerProductsScreen({ navigation }: SellerProductsScree
           data={filtered}
           keyExtractor={(item) => item.id}
           numColumns={2}
-          contentContainerStyle={styles.gridList}
+          contentContainerStyle={[styles.gridList, filtered.length === 0 && { flexGrow: 1 }]}
           columnWrapperStyle={styles.gridColumnWrapper}
           style={{ flex: 1 }}
           onScrollBeginDrag={closeDropdowns}
           refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} colors={['#F97316']} tintColor="#F97316" />
+            <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor="#111827" />
           }
           renderItem={renderGridProduct}
           ListEmptyComponent={emptyComponent}

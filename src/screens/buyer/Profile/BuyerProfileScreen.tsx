@@ -141,8 +141,8 @@ export default function BuyerProfileScreen({ navigation }: BuyerProfileScreenPro
               onPress={() => handleMenuItem(item.id)}
               disabled={item.id === 'location' && locationLoading}
             >
-              <View style={s.menuIconWrap}>
-                <Text style={s.menuIconText}>{item.icon}</Text>
+              <View>
+                <Text style={s.menuIconText}></Text>
               </View>
               <Text style={s.menuLabel}>{item.label}</Text>
               {item.id === 'location' && locationLoading ? (
@@ -169,8 +169,8 @@ export default function BuyerProfileScreen({ navigation }: BuyerProfileScreenPro
               ]}
               onPress={() => handleMenuItem(item.id)}
             >
-              <View style={s.menuIconWrap}>
-                <Text style={s.menuIconText}>{item.icon}</Text>
+              <View>
+                <Text style={s.menuIconText}></Text>
               </View>
               <Text style={s.menuLabel}>{item.label}</Text>
               <Text style={s.menuArrow}>{item.symbol}</Text>
@@ -186,8 +186,8 @@ export default function BuyerProfileScreen({ navigation }: BuyerProfileScreenPro
             style={({ pressed }) => [s.menuItem, pressed && s.menuItemPressed]}
             onPress={handleLogout}
           >
-            <View style={[s.menuIconWrap, s.logoutIconWrap]}>
-              <Text style={[s.menuIconText, s.logoutIconText]}>{LOGOUT_ICON}</Text>
+            <View>
+              <Text style={[s.menuIconText, s.logoutIconText]}></Text>
             </View>
             <Text style={s.logoutLabel}>Sign Out</Text>
           </Pressable>
