@@ -6,24 +6,23 @@ import {
   Alert, ActivityIndicator, StatusBar,
 } from 'react-native';
 import { useAuth } from '../../../context/AuthContext';
+import { useCart } from '../../../context/CartContext';
 import { placeOrder } from '../../../services/orderService';
 import { CheckoutScreenProps } from '../../../props/props';
 import { styles } from './CheckoutScreen.styles';
 
 export default function CheckoutScreen({ navigation, route }: CheckoutScreenProps) {
   const { user } = useAuth();
+  const { updateQuantity } = useCart();
   const [submitting, setSubmitting] = useState(false);
 
-  // Get only the selected items passed from the cart screen
   const selectedItems = route.params?.selectedItems ?? [];
 
-  // Compute total from selected items only
   const total = selectedItems.reduce(
     (sum: number, item: any) => sum + item.product.price * item.quantity,
     0
   );
 
-  // Validation before placing order
   const validate = (): string | null => {
     if (!user?.name?.trim()) return 'Your profile is missing a name. Please update your profile.';
     if (!user?.phone?.trim()) return 'Your profile is missing a phone number. Please update your profile.';
@@ -32,7 +31,6 @@ export default function CheckoutScreen({ navigation, route }: CheckoutScreenProp
     return null;
   };
 
-  // Group selected items by seller
   const bySeller = selectedItems.reduce<Record<string, typeof selectedItems>>(
     (acc: Record<string, typeof selectedItems>, item: any) => {
       const sid = item.product.sellerId;
@@ -42,6 +40,12 @@ export default function CheckoutScreen({ navigation, route }: CheckoutScreenProp
     },
     {}
   );
+
+  const removeCheckedOutItems = () => {
+    selectedItems.forEach((item: any) => {
+      updateQuantity(item.product.id, 0, item.selectedColor, item.selectedSize);
+    });
+  };
 
   const handlePlaceOrder = async () => {
     const validationError = validate();
@@ -63,13 +67,39 @@ export default function CheckoutScreen({ navigation, route }: CheckoutScreenProp
         });
       }
 
-      Alert.alert('Order Placed!', 'Your order has been placed successfully.', [
-        {
-          text: 'OK',
-          onPress: () =>
-            navigation.reset({ index: 0, routes: [{ name: 'BuyerTabs' }] }),
-        },
-      ]);
+      // Remove successfully ordered items from cart
+      removeCheckedOutItems();
+
+      Alert.alert(
+        'Order Placed!',
+        'Your order has been placed successfully.',
+        [
+          {
+            text: 'View Orders',
+            onPress: () => {
+              // Reset stack to BuyerTabs, then switch to the Orders tab
+              navigation.reset({
+                index: 0,
+                routes: [
+                  {
+                    name: 'BuyerTabs',
+                    state: {
+                      routes: [
+                        { name: 'Home' },
+                        { name: 'Cart' },
+                        { name: 'Orders' },  // ← land here
+                        { name: 'Profile' },
+                      ],
+                      index: 2, // Orders is the 3rd tab (0-indexed)
+                    },
+                  },
+                ],
+              });
+            },
+          },
+        ],
+        { cancelable: false }
+      );
     } catch (err: any) {
       Alert.alert('Error', err.message ?? 'Failed to place order.');
     } finally {
@@ -99,8 +129,10 @@ export default function CheckoutScreen({ navigation, route }: CheckoutScreenProp
         <View style={{ width: 40 }} />
       </View>
 
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 110 }}>
-
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={{ paddingBottom: 110 }}
+      >
         {/* Missing fields warning */}
         {missingFields.length > 0 && (
           <View style={styles.warningBox}>
@@ -204,7 +236,6 @@ export default function CheckoutScreen({ navigation, route }: CheckoutScreenProp
             <Text style={styles.totalValue}>₱{total.toFixed(2)}</Text>
           </View>
         </View>
-
       </ScrollView>
 
       {/* Bottom Bar */}
@@ -214,14 +245,19 @@ export default function CheckoutScreen({ navigation, route }: CheckoutScreenProp
           <Text style={styles.finalPrice}>₱{total.toFixed(2)}</Text>
         </View>
         <Pressable
-          style={[styles.placeOrderBtn, (submitting || missingFields.length > 0 || selectedItems.length === 0) && styles.placeOrderBtnDisabled]}
+          style={[
+            styles.placeOrderBtn,
+            (submitting || missingFields.length > 0 || selectedItems.length === 0) &&
+              styles.placeOrderBtnDisabled,
+          ]}
           onPress={handlePlaceOrder}
           disabled={submitting || missingFields.length > 0 || selectedItems.length === 0}
         >
-          {submitting
-            ? <ActivityIndicator color="#fff" />
-            : <Text style={styles.placeOrderText}>Place Order</Text>
-          }
+          {submitting ? (
+            <ActivityIndicator color="#fff" />
+          ) : (
+            <Text style={styles.placeOrderText}>Place Order</Text>
+          )}
         </Pressable>
       </View>
     </View>

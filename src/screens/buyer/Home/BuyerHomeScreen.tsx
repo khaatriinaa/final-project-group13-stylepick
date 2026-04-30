@@ -1,10 +1,12 @@
 // src/screens/buyer/Home/BuyerHomeScreen.tsx
-import React, { useState, useCallback, useRef } from 'react';
+import React, { useState, useCallback, useRef, useMemo } from 'react';
 import {
   View, Text, FlatList, Pressable, RefreshControl,
-  TextInput, Image, Animated, TouchableWithoutFeedback, Modal, ScrollView,
+  TextInput, Image, Animated, Modal, ScrollView,
+  NativeSyntheticEvent, NativeScrollEvent, Dimensions,
+  TouchableOpacity, Platform,
 } from 'react-native';
-import Svg, { Path, Circle, Rect } from 'react-native-svg';
+import Svg, { Path, Circle } from 'react-native-svg';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { BuyerHomeScreenProps, BuyerStackParamList } from '../../../props/props';
@@ -15,11 +17,12 @@ import { useAuth } from '../../../context/AuthContext';
 import { useFavorites } from '../../../context/FavoritesContext';
 import { styles, C } from './BuyerHomeScreen.styles';
 
+const { width: SCREEN_W } = Dimensions.get('window');
+
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 type SortKey = 'relevance' | 'price_asc' | 'price_desc' | 'newest' | 'name_asc';
-type PrimaryTab = 'All' | 'Women' | 'Curve' | 'Men' | 'Kids';
-type SubTab = 'For You' | 'New In' | 'Deals' | 'Bestsellers';
+type SubTab  = 'For You' | 'New In' | 'Bestsellers';
 
 const SORT_OPTIONS: { key: SortKey; label: string }[] = [
   { key: 'relevance',  label: 'Relevance'        },
@@ -29,8 +32,13 @@ const SORT_OPTIONS: { key: SortKey; label: string }[] = [
   { key: 'name_asc',   label: 'Name A → Z'        },
 ];
 
-const PRIMARY_TABS: PrimaryTab[] = ['All', 'Women', 'Curve', 'Men', 'Kids'];
-const SUB_TABS: SubTab[] = ['For You', 'New In', 'Deals', 'Bestsellers'];
+const SUB_TABS: SubTab[] = ['For You', 'New In', 'Bestsellers'];
+
+const BANNER_SLIDES = [
+  { id: 'slide-0', headline: 'HIGHLY\nREVIEWED\nPICKS', cta: 'Shop Now',   accent: '#FFFFFF', thumbOffset: 0 },
+  { id: 'slide-1', headline: 'HIGH\nSALES\nPICKS',      cta: 'See Trends', accent: '#F5E642', thumbOffset: 1 },
+  { id: 'slide-2', headline: 'BEST\nVALUE\nTODAY',      cta: 'Grab Deals', accent: '#42F5A2', thumbOffset: 2 },
+];
 
 const CAT_CIRCLES = [
   { label: 'Women',   emoji: '👗' },
@@ -50,14 +58,10 @@ const CAT_CIRCLES = [
 function BellIcon({ size = 20, color = '#fff' }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path
-        d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"
-        stroke={color} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round"
-      />
-      <Path
-        d="M13.73 21a2 2 0 0 1-3.46 0"
-        stroke={color} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round"
-      />
+      <Path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"
+        stroke={color} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" />
+      <Path d="M13.73 21a2 2 0 0 1-3.46 0"
+        stroke={color} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" />
     </Svg>
   );
 }
@@ -65,15 +69,11 @@ function BellIcon({ size = 20, color = '#fff' }: { size?: number; color?: string
 function CartIcon({ size = 20, color = '#fff' }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path
-        d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"
-        stroke={color} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round"
-      />
+      <Path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"
+        stroke={color} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" />
       <Path d="M3 6h18" stroke={color} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" />
-      <Path
-        d="M16 10a4 4 0 0 1-8 0"
-        stroke={color} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round"
-      />
+      <Path d="M16 10a4 4 0 0 1-8 0"
+        stroke={color} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" />
     </Svg>
   );
 }
@@ -95,17 +95,6 @@ function HeartIcon({ size = 14, filled = false, color = '#9B95A5' }: { size?: nu
         stroke={color} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round"
         fill={filled ? color : 'none'}
       />
-    </Svg>
-  );
-}
-
-function GridMenuIcon({ size = 18, color = 'rgba(255,255,255,0.5)' }: { size?: number; color?: string }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Rect x="3" y="3" width="7" height="7" rx="1" stroke={color} strokeWidth={1.8} />
-      <Rect x="14" y="3" width="7" height="7" rx="1" stroke={color} strokeWidth={1.8} />
-      <Rect x="3" y="14" width="7" height="7" rx="1" stroke={color} strokeWidth={1.8} />
-      <Rect x="14" y="14" width="7" height="7" rx="1" stroke={color} strokeWidth={1.8} />
     </Svg>
   );
 }
@@ -134,29 +123,10 @@ function ChevronDownIcon({ size = 11, color = '#9B95A5' }: { size?: number; colo
   );
 }
 
-function ChevronRightIcon({ size = 12, color = '#2D2B55' }: { size?: number; color?: string }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path d="M9 18l6-6-6-6" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
-    </Svg>
-  );
-}
-
 function PlusIcon({ size = 18, color = '#fff' }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path d="M12 5v14M5 12h14" stroke={color} strokeWidth={2.2} strokeLinecap="round" />
-    </Svg>
-  );
-}
-
-function StarIcon({ size = 11, color = '#fff' }: { size?: number; color?: string }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill={color}>
-      <Path
-        d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"
-        fill={color}
-      />
     </Svg>
   );
 }
@@ -185,25 +155,284 @@ const sortProducts = (products: Product[], key: SortKey): Product[] => {
   }
 };
 
-// ─── Component ────────────────────────────────────────────────────────────────
+// ─── Swipeable Banner ─────────────────────────────────────────────────────────
+
+interface SwipeableBannerProps {
+  products: Product[];
+  onShopNow: () => void;
+  onProductPress: (id: string) => void;
+}
+
+function SwipeableBanner({ products, onShopNow, onProductPress }: SwipeableBannerProps) {
+  const [activeIndex, setActiveIndex] = useState(0);
+  const scrollRef = useRef<ScrollView>(null);
+  const BANNER_W = SCREEN_W - 28;
+
+  const handleMomentumEnd = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
+    const idx = Math.round(e.nativeEvent.contentOffset.x / BANNER_W);
+    setActiveIndex(Math.max(0, Math.min(idx, BANNER_SLIDES.length - 1)));
+  };
+
+  const goTo = (idx: number) => {
+    scrollRef.current?.scrollTo({ x: idx * BANNER_W, animated: true });
+    setActiveIndex(idx);
+  };
+
+  return (
+    <View style={styles.bannerContainer}>
+      <ScrollView
+        ref={scrollRef}
+        horizontal
+        pagingEnabled={false}
+        snapToInterval={BANNER_W}
+        snapToAlignment="start"
+        decelerationRate="fast"
+        showsHorizontalScrollIndicator={false}
+        onMomentumScrollEnd={handleMomentumEnd}
+        scrollEventThrottle={16}
+      >
+        {BANNER_SLIDES.map((slide) => {
+          const product = products[slide.thumbOffset];
+          return (
+            <View key={slide.id} style={[styles.bannerSlide, { width: BANNER_W }]}>
+              <View style={styles.bannerLeft}>
+                <Text style={[styles.bannerHeadline, { color: slide.accent }]}>
+                  {slide.headline}
+                </Text>
+                <Pressable
+                  style={({ pressed }) => [
+                    styles.bannerCta,
+                    { backgroundColor: slide.accent },
+                    pressed && { opacity: 0.82 },
+                  ]}
+                  onPress={onShopNow}
+                >
+                  <Text style={styles.bannerCtaText}>{slide.cta} →</Text>
+                </Pressable>
+              </View>
+              <View style={styles.bannerRight}>
+                {product ? (
+                  <Pressable
+                    style={({ pressed }) => [styles.bannerThumb, { opacity: pressed ? 0.88 : 1 }]}
+                    onPress={() => onProductPress(product.id)}
+                  >
+                    {product.images?.[0] ? (
+                      <Image
+                        source={{ uri: product.images[0] }}
+                        style={styles.bannerThumbImg}
+                        resizeMode="cover"
+                      />
+                    ) : (
+                      <View style={styles.bannerThumbEmpty}>
+                        <Text style={{ fontSize: 42 }}>👗</Text>
+                      </View>
+                    )}
+                    <View style={styles.bannerPriceTag}>
+                      <Text style={styles.bannerPriceTagText}>
+                        ₱{product.price.toLocaleString()}
+                      </Text>
+                    </View>
+                    <View style={styles.bannerNameTag}>
+                      <Text style={styles.bannerNameTagText} numberOfLines={1}>
+                        {product.name}
+                      </Text>
+                    </View>
+                  </Pressable>
+                ) : (
+                  <View style={[styles.bannerThumb, styles.bannerThumbEmpty]}>
+                    <Text style={{ fontSize: 42 }}>👗</Text>
+                  </View>
+                )}
+              </View>
+            </View>
+          );
+        })}
+      </ScrollView>
+      <View style={styles.bannerDots}>
+        {BANNER_SLIDES.map((_, i) => (
+          <Pressable key={i} hitSlop={8} onPress={() => goTo(i)}>
+            <View style={[styles.bannerDot, i === activeIndex && styles.bannerDotActive]} />
+          </Pressable>
+        ))}
+      </View>
+    </View>
+  );
+}
+
+// ─── Product Card ─────────────────────────────────────────────────────────────
+
+interface ProductCardProps {
+  item: Product;
+  onNavigate: (id: string) => void;
+  onToggleWishlist: (item: Product) => void;
+  onAddToCart: (item: Product) => void;
+  isWishlisted: boolean;
+}
+
+function ProductCard({ item, onNavigate, onToggleWishlist, onAddToCart, isWishlisted }: ProductCardProps) {
+  const isSoldOut  = item.stock === 0;
+  const isLowStock = item.stock > 0 && item.stock <= 5;
+  const showSale   = isOnSale(item) && !isSoldOut;
+  const showNew    = isNewProduct(item) && !isSoldOut && !showSale;
+  const discount   = getDiscountPercent(item);
+
+  return (
+    <View style={styles.productCard}>
+
+      {/* Nav Pressable — NO overflow:hidden so it never clips siblings */}
+      <Pressable
+        onPress={() => onNavigate(item.id)}
+        style={{ flex: 1, borderRadius: 10 }}
+        android_ripple={{ color: 'rgba(0,0,0,0.04)', borderless: false }}
+      >
+        <View style={[
+          styles.productImageWrap,
+          { borderTopLeftRadius: 10, borderTopRightRadius: 10, overflow: 'hidden' },
+        ]}>
+          {item.images?.[0] ? (
+            <Image
+              source={{ uri: item.images[0] }}
+              style={styles.productImage}
+              resizeMode="cover"
+            />
+          ) : (
+            <View style={styles.productImagePlaceholder}>
+              <Text style={styles.productImageIcon}>👗</Text>
+            </View>
+          )}
+          {isSoldOut && (
+            <View style={styles.soldOutOverlay}>
+              <Text style={styles.soldOutText}>Sold Out</Text>
+            </View>
+          )}
+          {showSale && discount > 0 && (
+            <View style={styles.discountTagBadge}>
+              <Text style={styles.discountTagText}>-{discount}%</Text>
+            </View>
+          )}
+          {showNew && (
+            <View style={styles.tagBadge}>
+              <Text style={styles.tagBadgeText}>New</Text>
+            </View>
+          )}
+        </View>
+
+        <View style={styles.productInfo}>
+          <Text style={styles.productName} numberOfLines={2}>{item.name}</Text>
+          <View style={styles.priceRow}>
+            <Text style={styles.productPrice}>₱{item.price.toLocaleString()}</Text>
+            {showSale && item.comparePrice != null && (
+              <>
+                <Text style={styles.comparePrice}>₱{item.comparePrice.toLocaleString()}</Text>
+                <Text style={styles.discountPercent}>-{discount}%</Text>
+              </>
+            )}
+          </View>
+          <View style={[styles.productFooter, { minHeight: 18 }]}>
+            {isLowStock ? (
+              <Text style={[styles.soldLabel, { color: '#F59E0B' }]}>Only {item.stock} left</Text>
+            ) : (
+              item.stock > 0 && item.stock <= 20 && (
+                <Text style={styles.soldLabel}>{item.stock} left</Text>
+              )
+            )}
+          </View>
+        </View>
+      </Pressable>
+
+      {/* Heart button — absolute sibling AFTER nav Pressable */}
+      <TouchableOpacity
+        onPress={() => onToggleWishlist(item)}
+        activeOpacity={0.75}
+        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+        style={{
+          position: 'absolute',
+          top: 8,
+          right: 8,
+          zIndex: 20,
+          elevation: 20,
+          width: 34,
+          height: 34,
+          borderRadius: 17,
+          backgroundColor: 'rgba(255,255,255,0.95)',
+          alignItems: 'center',
+          justifyContent: 'center',
+          shadowColor: '#000',
+          shadowOffset: { width: 0, height: 1 },
+          shadowOpacity: 0.12,
+          shadowRadius: 3,
+        }}
+      >
+        <HeartIcon
+          size={15}
+          filled={isWishlisted}
+          color={isWishlisted ? '#E63946' : '#9B95A5'}
+        />
+      </TouchableOpacity>
+
+      {/* Add to cart button */}
+      <TouchableOpacity
+        onPress={() => !isSoldOut && onAddToCart(item)}
+        disabled={isSoldOut}
+        activeOpacity={0.8}
+        hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+        style={{
+          position: 'absolute',
+          bottom: 10,
+          right: 10,
+          zIndex: 20,
+          elevation: 20,
+          width: 30,
+          height: 30,
+          borderRadius: 8,
+          backgroundColor: isSoldOut ? '#D1D5DB' : '#2D2B55',
+          alignItems: 'center',
+          justifyContent: 'center',
+          opacity: isSoldOut ? 0.5 : 1,
+          shadowColor: '#2D2B55',
+          shadowOffset: { width: 0, height: 3 },
+          shadowOpacity: 0.28,
+          shadowRadius: 5,
+        }}
+      >
+        <PlusIcon size={16} color="#fff" />
+      </TouchableOpacity>
+
+    </View>
+  );
+}
+
+// ─── Main Screen ──────────────────────────────────────────────────────────────
 
 export default function BuyerHomeScreen({ navigation }: BuyerHomeScreenProps) {
-  const { user }                                    = useAuth();
-  const { addToCart, itemCount }                    = useCart();
-  const { addFavorite, removeFavorite, isFavorite } = useFavorites();
+  const { user }                                           = useAuth();
+  const { addToCart, itemCount }                           = useCart();
+  const { favorites, addFavorite, removeFavorite, isFavorite } = useFavorites();
   const stackNav = useNavigation<NativeStackNavigationProp<BuyerStackParamList>>();
 
   const [allProducts, setAllProducts]       = useState<Product[]>([]);
   const [searchQuery, setSearchQuery]       = useState('');
   const [activeCategory, setActiveCategory] = useState('All');
-  const [activeTab, setActiveTab]           = useState<PrimaryTab>('All');
   const [activeSubTab, setActiveSubTab]     = useState<SubTab>('For You');
   const [sortKey, setSortKey]               = useState<SortKey>('relevance');
   const [sortOpen, setSortOpen]             = useState(false);
   const [refreshing, setRefreshing]         = useState(false);
   const [searchFocused, setSearchFocused]   = useState(false);
 
-  const cartScale = useRef(new Animated.Value(1)).current;
+  const searchInputRef = useRef<TextInput>(null);
+  const listRef        = useRef<FlatList<Product>>(null);
+  const gridOffset     = useRef<number>(0);
+  const cartScale      = useRef(new Animated.Value(1)).current;
+
+  // ── FIX: derive a stable Set of favorited IDs from the favorites array ────
+  // By putting this Set in useCallback deps, renderProduct re-creates itself
+  // (and thus re-renders each card) whenever the favorites list changes.
+  // Without this, the memoized renderProduct captured a stale isFavorite
+  // closure and cards never updated their heart icon after the first render.
+  const favoriteIds = useMemo(
+    () => new Set(favorites.map((f) => f.id)),
+    [favorites],
+  );
 
   const bounce = () => {
     Animated.sequence([
@@ -222,10 +451,18 @@ export default function BuyerHomeScreen({ navigation }: BuyerHomeScreenProps) {
     setRefreshing(true); await fetchProducts(); setRefreshing(false);
   }, [fetchProducts]);
 
-  const toggleWishlist = (p: Product) =>
+  const toggleWishlist = useCallback((p: Product) => {
     isFavorite(p.id) ? removeFavorite(p.id) : addFavorite(p);
+  }, [isFavorite, removeFavorite, addFavorite]);
 
-  const handleAddToCart = (item: Product) => { addToCart(item); bounce(); };
+  const handleAddToCart = useCallback((item: Product) => {
+    addToCart(item);
+    bounce();
+  }, [addToCart]);
+
+  const scrollToGrid = useCallback(() => {
+    listRef.current?.scrollToOffset({ offset: gridOffset.current, animated: true });
+  }, []);
 
   const activeSortLabel = SORT_OPTIONS.find(o => o.key === sortKey)?.label ?? 'Relevance';
 
@@ -237,106 +474,27 @@ export default function BuyerHomeScreen({ navigation }: BuyerHomeScreenProps) {
     allProducts.filter((p) => {
       const matchCat    = activeCategory === 'All' || p.category.toLowerCase() === activeCategory.toLowerCase();
       const matchSearch = !searchQuery.trim() || p.name.toLowerCase().includes(searchQuery.toLowerCase());
-      const matchSub    = activeSubTab === 'Deals' ? isOnSale(p) : true;
+      const matchSub    = activeSubTab === 'New In' ? isNewProduct(p) : true;
       return matchCat && matchSearch && matchSub;
     }),
     sortKey,
   );
 
-  // ─── Product card ──────────────────────────────────────────────────────────
-
-  const renderProduct = ({ item }: { item: Product }) => {
-    const isWishlisted = isFavorite(item.id);
-    const isSoldOut    = item.stock === 0;
-    const isLowStock   = item.stock > 0 && item.stock <= 5;
-    const showSale     = isOnSale(item) && !isSoldOut;
-    const showNew      = isNewProduct(item) && !isSoldOut && !showSale;
-    const discount     = getDiscountPercent(item);
-
-    return (
-      <View style={styles.productCard}>
-        <Pressable style={styles.cardWishlistBtn} onPress={() => toggleWishlist(item)} hitSlop={10}>
-          <HeartIcon size={13} filled={isWishlisted} color={isWishlisted ? C.ink : C.textMuted} />
-        </Pressable>
-
-        <Pressable
-          style={({ pressed }) => [{ opacity: pressed ? 0.93 : 1 }]}
-          onPress={() => stackNav.navigate('ProductDetail', { productId: item.id })}
-        >
-          <View style={styles.productImageWrap}>
-            {item.images?.[0] ? (
-              <Image source={{ uri: item.images[0] }} style={styles.productImage} resizeMode="cover" />
-            ) : (
-              <View style={styles.productImagePlaceholder}>
-                <Text style={styles.productImageIcon}>👗</Text>
-              </View>
-            )}
-            {isSoldOut && (
-              <View style={styles.soldOutOverlay}>
-                <Text style={styles.soldOutText}>Sold Out</Text>
-              </View>
-            )}
-            {showSale && discount > 0 && (
-              <View style={styles.discountTagBadge}>
-                <Text style={styles.discountTagText}>-{discount}%</Text>
-              </View>
-            )}
-            {showNew && (
-              <View style={styles.tagBadge}>
-                <Text style={styles.tagBadgeText}>New</Text>
-              </View>
-            )}
-          </View>
-
-          <View style={styles.productInfo}>
-            <Text style={styles.productName} numberOfLines={2}>{item.name}</Text>
-            <View style={styles.priceRow}>
-              <Text style={styles.productPrice}>₱{item.price.toLocaleString()}</Text>
-              {showSale && item.comparePrice != null && (
-                <>
-                  <Text style={styles.comparePrice}>₱{item.comparePrice.toLocaleString()}</Text>
-                  <Text style={styles.discountPercent}>-{discount}%</Text>
-                </>
-              )}
-            </View>
-            <View style={styles.productFooter}>
-              {isLowStock ? (
-                <Text style={[styles.soldLabel, { color: '#F59E0B' }]}>
-                  Only {item.stock} left
-                </Text>
-              ) : (
-                item.stock > 0 && item.stock <= 20 && (
-                  <Text style={styles.soldLabel}>{item.stock} left</Text>
-                )
-              )}
-              <Pressable
-                style={({ pressed }) => [
-                  styles.addBtn,
-                  pressed && !isSoldOut && styles.addBtnPressed,
-                  isSoldOut && { backgroundColor: '#D1D5DB', opacity: 0.5 },
-                ]}
-                onPress={() => !isSoldOut && handleAddToCart(item)}
-                disabled={isSoldOut}
-                hitSlop={4}
-              >
-                <PlusIcon size={16} color="#fff" />
-              </Pressable>
-            </View>
-          </View>
-        </Pressable>
-      </View>
-    );
-  };
+  // ── FIX: favoriteIds (not isFavorite) is the dep that changes on toggle ──
+  const renderProduct = useCallback(({ item }: { item: Product }) => (
+    <ProductCard
+      item={item}
+      isWishlisted={favoriteIds.has(item.id)}
+      onNavigate={(id) => stackNav.navigate('ProductDetail', { productId: id })}
+      onToggleWishlist={toggleWishlist}
+      onAddToCart={handleAddToCart}
+    />
+  ), [favoriteIds, toggleWishlist, handleAddToCart, stackNav]);
 
   // ─── Sort modal ───────────────────────────────────────────────────────────
 
   const SortModal = () => (
-    <Modal
-      visible={sortOpen}
-      transparent
-      animationType="slide"
-      onRequestClose={() => setSortOpen(false)}
-    >
+    <Modal visible={sortOpen} transparent animationType="slide" onRequestClose={() => setSortOpen(false)}>
       <Pressable style={styles.sortOverlay} onPress={() => setSortOpen(false)}>
         <View style={styles.sortSheet}>
           <View style={styles.sortHandle} />
@@ -366,57 +524,12 @@ export default function BuyerHomeScreen({ navigation }: BuyerHomeScreenProps) {
 
   const ListHeader = () => (
     <>
-      {/* Banner */}
-      <View style={styles.bannerWrap}>
-        <View style={styles.bannerInner}>
-          <View style={styles.bannerLeft}>
-            <View style={styles.bannerStars}>
-              {[0,1,2,3,4].map((i) => (
-                <StarIcon key={i} size={11} color={C.white} />
-              ))}
-              <Text style={styles.bannerStarLabel}>4.8+</Text>
-            </View>
-            <Text style={styles.bannerTitle}>
-              HIGHLY{'\n'}REVIEWED{'\n'}PICKS
-            </Text>
-            <Pressable
-              style={({ pressed }) => [styles.bannerCta, pressed && { opacity: 0.85 }]}
-              onPress={() => stackNav.navigate('ProductList' as any)}
-            >
-              <Text style={styles.bannerCtaText}>Shop Now →</Text>
-            </Pressable>
-          </View>
-          <View style={styles.bannerRight}>
-            <View style={styles.bannerThumbWrap}>
-              {filtered.slice(0, 2).map((p, i) => (
-                <Pressable
-                  key={p.id}
-                  style={styles.bannerThumb}
-                  onPress={() => stackNav.navigate('ProductDetail', { productId: p.id })}
-                >
-                  {p.images?.[0] ? (
-                    <Image source={{ uri: p.images[0] }} style={styles.bannerThumbImg} resizeMode="cover" />
-                  ) : (
-                    <View style={styles.bannerThumbImgPlaceholder}>
-                      <Text style={styles.bannerThumbPlaceholderText}>{i === 0 ? '👗' : '👒'}</Text>
-                    </View>
-                  )}
-                  <View style={styles.bannerThumbPrice}>
-                    <Text style={styles.bannerThumbPriceText}>₱{p.price.toLocaleString()}</Text>
-                  </View>
-                </Pressable>
-              ))}
-            </View>
-          </View>
-        </View>
-        <View style={styles.bannerDots}>
-          {[0,1,2].map(i => (
-            <View key={i} style={[styles.bannerDot, i === 0 && styles.bannerDotActive]} />
-          ))}
-        </View>
-      </View>
+      <SwipeableBanner
+        products={filtered}
+        onShopNow={scrollToGrid}
+        onProductPress={(id) => stackNav.navigate('ProductDetail', { productId: id })}
+      />
 
-      {/* Category circles */}
       <View style={styles.catCirclesWrap}>
         <ScrollView
           horizontal
@@ -440,21 +553,19 @@ export default function BuyerHomeScreen({ navigation }: BuyerHomeScreenProps) {
         </ScrollView>
       </View>
 
-      {/* Section header */}
-      <View style={styles.sectionHeader}>
+      <View
+        style={styles.sectionHeader}
+        onLayout={(e) => { gridOffset.current = e.nativeEvent.layout.y; }}
+      >
         <Text style={styles.sectionTitle}>
           Super<Text style={styles.sectionTitleAccent}> Deals</Text>
         </Text>
         <Pressable
           style={styles.seeAllBtn}
           onPress={() => stackNav.navigate('ProductList' as any)}
-        >
-          <Text style={styles.seeAll}>See all</Text>
-          <ChevronRightIcon size={12} color={C.violet} />
-        </Pressable>
+        />
       </View>
 
-      {/* Status + sort row */}
       <View style={styles.statusRow}>
         <Text style={styles.statusCount}>
           Showing <Text style={styles.statusCountBold}>{filtered.length} items</Text>
@@ -474,23 +585,27 @@ export default function BuyerHomeScreen({ navigation }: BuyerHomeScreenProps) {
     <View style={styles.container}>
       <SortModal />
 
-      {/* ── Header ───────────────────────────────────────────────────────── */}
       <View style={styles.header}>
-
-        {/* Top bar */}
         <View style={styles.topBar}>
-          {/* Avatar */}
           <Pressable
             style={styles.avatarBtn}
-            onPress={() => (navigation as any).navigate('BuyerProfile')}
+            onPress={() => navigation.navigate('Profile' as any)}
           >
-            <Text style={styles.avatarFallbackText}>{avatarInitial}</Text>
+            {user?.profilePicture ? (
+              <Image source={{ uri: user.profilePicture }} style={styles.avatarBtnImg} />
+            ) : (
+              <Text style={styles.avatarFallbackText}>{avatarInitial}</Text>
+            )}
           </Pressable>
 
-          {/* Search */}
-          <View style={[styles.searchWrap, searchFocused && styles.searchWrapFocused]}>
+          <TouchableOpacity
+            activeOpacity={1}
+            style={[styles.searchWrap, searchFocused && styles.searchWrapFocused]}
+            onPress={() => searchInputRef.current?.focus()}
+          >
             <SearchIcon size={14} color={C.placeholder} />
             <TextInput
+              ref={searchInputRef}
               style={styles.searchInput}
               placeholder="Search products…"
               placeholderTextColor={C.placeholder}
@@ -498,15 +613,18 @@ export default function BuyerHomeScreen({ navigation }: BuyerHomeScreenProps) {
               onChangeText={setSearchQuery}
               onFocus={() => setSearchFocused(true)}
               onBlur={() => setSearchFocused(false)}
+              blurOnSubmit={false}
             />
-            <Pressable style={styles.searchBtn}>
+            <TouchableOpacity
+              style={styles.searchBtn}
+              onPressIn={() => searchInputRef.current?.focus()}
+              activeOpacity={0.75}
+            >
               <Text style={styles.searchBtnText}>Search</Text>
-            </Pressable>
-          </View>
+            </TouchableOpacity>
+          </TouchableOpacity>
 
-          {/* Notification + Cart */}
           <View style={styles.topBarRightIcons}>
-            {/* Bell */}
             <Pressable
               style={styles.iconPill}
               onPress={() => (navigation as any).navigate('BuyerNotifications')}
@@ -514,8 +632,6 @@ export default function BuyerHomeScreen({ navigation }: BuyerHomeScreenProps) {
               <BellIcon size={18} color={C.white} />
               <View style={styles.notifDot} />
             </Pressable>
-
-            {/* Cart */}
             <Pressable
               style={styles.iconPill}
               onPress={() => (navigation as any).navigate('Cart')}
@@ -532,31 +648,8 @@ export default function BuyerHomeScreen({ navigation }: BuyerHomeScreenProps) {
           </View>
         </View>
 
-        {/* Primary nav tabs */}
-        <View style={styles.navTabRow}>
-          {PRIMARY_TABS.map((tab) => (
-            <Pressable
-              key={tab}
-              style={[styles.navTab, activeTab === tab && styles.navTabActive]}
-              onPress={() => setActiveTab(tab)}
-            >
-              <Text style={[styles.navTabText, activeTab === tab && styles.navTabTextActive]}>
-                {tab}
-              </Text>
-            </Pressable>
-          ))}
-          <Pressable style={styles.navTabMore}>
-            <GridMenuIcon size={16} color="rgba(255,255,255,0.45)" />
-          </Pressable>
-        </View>
-
-        {/* Sub tabs — no icons */}
         <View style={styles.subTabsWrap}>
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            style={styles.subTabsRow as any}
-          >
+          <View style={styles.subTabsRow}>
             {SUB_TABS.map((key) => (
               <Pressable
                 key={key}
@@ -568,18 +661,19 @@ export default function BuyerHomeScreen({ navigation }: BuyerHomeScreenProps) {
                 </Text>
               </Pressable>
             ))}
-          </ScrollView>
+          </View>
         </View>
       </View>
 
-      {/* ── White body ───────────────────────────────────────────────────── */}
       <View style={styles.body}>
         <FlatList
+          ref={listRef}
           data={filtered}
           keyExtractor={(item) => item.id}
           numColumns={2}
           contentContainerStyle={styles.grid}
           style={{ flex: 1 }}
+          keyboardShouldPersistTaps="handled"
           refreshControl={
             <RefreshControl
               refreshing={refreshing}

@@ -35,17 +35,30 @@ export const styles = StyleSheet.create({
   row: { justifyContent: 'space-between', marginBottom: 12 },
 
   // ── Card ────────────────────────────────────────────────
+  //
+  // FIX: overflow is intentionally NOT set to 'hidden' here.
+  // overflow:hidden on a card clips absolutely-positioned children (like the
+  // heart button) on Android — both visually and for touch hit-testing.
+  // Each child section handles its own clipping/radius instead.
   card: {
     width: CARD_WIDTH,
     backgroundColor: '#FFFFFF',
     borderRadius: 14,
-    overflow: 'hidden',
+    // overflow:hidden removed — see note above
     shadowColor: '#000', shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.06, shadowRadius: 6, elevation: 2,
   },
+
+  // Image wrapper clips the image to the card's top rounded corners.
+  // overflow:hidden lives here, scoped only to the image area.
   imageWrapper: {
-    width: '100%', height: CARD_WIDTH,
-    backgroundColor: '#F3F4F6', position: 'relative',
+    width: '100%',
+    height: CARD_WIDTH,
+    backgroundColor: '#F3F4F6',
+    position: 'relative',
+    borderTopLeftRadius: 14,
+    borderTopRightRadius: 14,
+    overflow: 'hidden',
   },
   image: { width: '100%', height: '100%' },
   imagePlaceholder: {
@@ -54,14 +67,18 @@ export const styles = StyleSheet.create({
   },
   imagePlaceholderIcon: { fontSize: 36, color: '#D1D5DB' },
 
-  // Heart remove button
+  // Heart remove button — must have elevation > card elevation so Android
+  // places it on top for both rendering and touch hit-testing.
   heartBtn: {
     position: 'absolute', top: 8, right: 8,
     width: 32, height: 32, borderRadius: 16,
-    backgroundColor: 'rgba(255,255,255,0.9)',
+    backgroundColor: 'rgba(255,255,255,0.95)',
     alignItems: 'center', justifyContent: 'center',
+    // FIX: zIndex + elevation both set and higher than card (elevation:2)
+    zIndex: 20,
+    elevation: 20,
     shadowColor: '#000', shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1, shadowRadius: 3, elevation: 2,
+    shadowOpacity: 0.12, shadowRadius: 3,
   },
   heartIcon: { fontSize: 16 },
 

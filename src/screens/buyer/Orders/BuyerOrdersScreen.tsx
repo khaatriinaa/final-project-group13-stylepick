@@ -19,7 +19,7 @@ const STATUS_BADGE_STYLE: Record<OrderStatus, { bg: string; text: string }> = {
   preparing: { bg: '#EEF2FF', text: '#3730A3' },
   shipped:   { bg: '#ECFDF5', text: '#065F46' },
   delivered: { bg: '#DCFCE7', text: '#14532D' },
-  cancelled: { bg: '#F3F4F6', text: '#6B7280' },
+  cancelled: { bg: '#FEF2F2', text: '#991B1B' },
   refunded:  { bg: '#F3F4F6', text: '#6B7280' },
 };
 
@@ -39,21 +39,34 @@ const TABS: { label: string; value: OrderStatus | 'all' }[] = [
   { label: 'Processing', value: 'confirmed' },
   { label: 'Shipped',    value: 'shipped' },
   { label: 'Delivered',  value: 'delivered' },
+  { label: 'Cancelled',  value: 'cancelled' },
 ];
 
 export default function BuyerOrdersScreen({ navigation }: BuyerOrdersScreenProps) {
   const { user } = useAuth();
-  const [orders, setOrders] = useState<Order[]>([]);
-  const [activeTab, setActiveTab] = useState<OrderStatus | 'all'>('all');
+  const [orders, setOrders]         = useState<Order[]>([]);
+  const [activeTab, setActiveTab]   = useState<OrderStatus | 'all'>('all');
   const [refreshing, setRefreshing] = useState(false);
+  const [loading, setLoading]       = useState(true);
 
   const fetchOrders = useCallback(async () => {
     if (!user?.id) return;
-    const data = await getMyOrdersAsBuyer(user.id);
-    setOrders(data);
+    try {
+      const data = await getMyOrdersAsBuyer(user.id);
+      setOrders(data);
+    } catch (e) {
+      console.warn('Failed to fetch orders:', e);
+    } finally {
+      setLoading(false);
+    }
   }, [user?.id]);
 
-  useFocusEffect(useCallback(() => { fetchOrders(); }, [fetchOrders]));
+  // Re-fetches every time screen gains focus — picks up cancellations
+  // made in BuyerOrderDetailScreen automatically
+  useFocusEffect(useCallback(() => {
+    setLoading(true);
+    fetchOrders();
+  }, [fetchOrders]));
 
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -61,24 +74,55 @@ export default function BuyerOrdersScreen({ navigation }: BuyerOrdersScreenProps
     setRefreshing(false);
   }, [fetchOrders]);
 
-  const filtered = activeTab === 'all' ? orders : orders.filter((o) => o.status === activeTab);
+  const filtered = activeTab === 'all'
+    ? orders
+    : activeTab === 'confirmed'
+      ? orders.filter((o) => o.status === 'confirmed' || o.status === 'preparing')
+      : orders.filter((o) => o.status === activeTab);
+
+  // ── Tab count badges ────────────────────────────────────────────────────────
+  const getTabCount = (value: OrderStatus | 'all'): number => {
+    if (value === 'all') return orders.length;
+    if (value === 'confirmed') return orders.filter((o) => o.status === 'confirmed' || o.status === 'preparing').length;
+    return orders.filter((o) => o.status === value).length;
+  };
 
   const renderOrder = ({ item }: { item: Order }) => {
-    const badge = STATUS_BADGE_STYLE[item.status];
-    const itemCount = item.items.reduce((sum, ci) => sum + ci.quantity, 0);
-    const firstItem = item.items[0];
-    const productImage = firstItem?.product?.images?.[0] ?? null;
+    const badge       = STATUS_BADGE_STYLE[item.status];
+    const itemCount   = item.items.reduce((sum, ci) => sum + ci.quantity, 0);
+    const firstItem   = item.items[0];
+
+    // Guard against Supabase jsonb items that may be denormalized snapshots
+    const productImage =
+      firstItem?.product?.images?.[0] ??
+      (firstItem?.image ? firstItem.image : null);
+
+    const productDisplayName =
+      firstItem?.product?.name ??
+      firstItem?.productName ??
+      firstItem?.name ??
+      'No items';
+
     const productName = firstItem
-      ? `${firstItem.product.name}${item.items.length > 1 ? ` +${item.items.length - 1} more` : ''}`
+      ? `${productDisplayName}${item.items.length > 1 ? ` +${item.items.length - 1} more` : ''}`
       : 'No items';
+
+    const isCancelled = item.status === 'cancelled' || item.status === 'refunded';
 
     return (
       <Pressable
-        style={({ pressed }) => [styles.card, pressed && styles.cardPressed]}
+        style={({ pressed }) => [
+          styles.card,
+          pressed && styles.cardPressed,
+          isCancelled && styles.cardCancelled,
+        ]}
         onPress={() => navigation.navigate('BuyerOrderDetail', { order: item })}
       >
+        {/* ── Card Header ── */}
         <View style={styles.cardHeader}>
-          <Text style={styles.orderId}>Order #{item.id.slice(0, 12).toUpperCase()}</Text>
+          <Text style={styles.orderId}>
+            Order #{item.id.slice(0, 12).toUpperCase()}
+          </Text>
           <View style={[styles.badge, { backgroundColor: badge.bg }]}>
             <Text style={[styles.badgeText, { color: badge.text }]}>
               {STATUS_LABEL[item.status]}
@@ -86,31 +130,52 @@ export default function BuyerOrdersScreen({ navigation }: BuyerOrdersScreenProps
           </View>
         </View>
 
+        {/* ── Card Body ── */}
         <View style={styles.cardBody}>
           <View style={styles.productImg}>
             {productImage ? (
-              <Image source={{ uri: productImage }} style={styles.productImgImage} resizeMode="cover" />
+              <Image
+                source={{ uri: productImage }}
+                style={[
+                  styles.productImgImage,
+                  isCancelled && { opacity: 0.45 },
+                ]}
+                resizeMode="cover"
+              />
             ) : (
               <Text style={styles.productImgPlaceholder}>📦</Text>
             )}
           </View>
-          <View style={styles.productInfo}>
-            <Text style={styles.productName} numberOfLines={1}>{productName}</Text>
 
-            {/* ── Variant of first item ── */}
-            {(firstItem?.selectedColor || firstItem?.selectedSize) && (
+          <View style={styles.productInfo}>
+            <Text
+              style={[styles.productName, isCancelled && { color: '#9CA3AF' }]}
+              numberOfLines={1}
+            >
+              {productName}
+            </Text>
+
+            {/* Variant chip — guard both field naming conventions */}
+            {(firstItem?.selectedColor || firstItem?.selectedSize ||
+              firstItem?.color        || firstItem?.size) && (
               <View style={styles.variantChip}>
                 <View style={styles.variantDot} />
                 <Text style={styles.variantText}>
-                  {[firstItem.selectedColor, firstItem.selectedSize].filter(Boolean).join(' / ')}
+                  {[
+                    firstItem.selectedColor ?? firstItem.color,
+                    firstItem.selectedSize  ?? firstItem.size,
+                  ].filter(Boolean).join(' / ')}
                 </Text>
               </View>
             )}
 
-            <Text style={styles.productMeta}>{itemCount} item{itemCount !== 1 ? 's' : ''}</Text>
+            <Text style={styles.productMeta}>
+              {itemCount} item{itemCount !== 1 ? 's' : ''}
+            </Text>
           </View>
         </View>
 
+        {/* ── Card Footer ── */}
         <View style={styles.cardFooter}>
           <Text style={styles.orderDate}>
             {new Date(item.createdAt).toLocaleDateString('en-PH', {
@@ -118,9 +183,15 @@ export default function BuyerOrdersScreen({ navigation }: BuyerOrdersScreenProps
             })}
           </Text>
           <View style={styles.footerRight}>
-            <Text style={styles.orderTotal}>₱{item.totalAmount.toLocaleString()}</Text>
+            <Text style={[styles.orderTotal, isCancelled && { color: '#9CA3AF' }]}>
+              ₱{item.totalAmount.toLocaleString()}
+            </Text>
             <Pressable
-              style={({ pressed }) => [styles.detailsBtn, pressed && styles.detailsBtnPressed]}
+              style={({ pressed }) => [
+                styles.detailsBtn,
+                pressed && styles.detailsBtnPressed,
+                isCancelled && styles.detailsBtnCancelled,
+              ]}
               onPress={() => navigation.navigate('BuyerOrderDetail', { order: item })}
             >
               <Text style={styles.detailsBtnText}>Details</Text>
@@ -133,55 +204,100 @@ export default function BuyerOrdersScreen({ navigation }: BuyerOrdersScreenProps
 
   return (
     <View style={styles.container}>
+
+      {/* ── Header ── */}
       <View style={styles.header}>
         <View style={styles.headerTop}>
           <Text style={styles.headerTitle}>My Orders</Text>
           <View style={styles.headerIcons}>
-            {/* Formal Notification Icon (Using Unicode bell for maximum compatibility) */}
-            <TouchableWithoutFeedback onPress={() => (navigation as any).navigate('BuyerNotifications')}>
+            <TouchableWithoutFeedback
+              onPress={() => (navigation as any).navigate('BuyerNotifications')}
+            >
               <View style={styles.iconBtn}>
-                {/* Swapped emoji for a formal vector icon */}
                 <Ionicons name="notifications-outline" size={20} color="#374151" />
-                
                 <View style={styles.notifDot} />
               </View>
             </TouchableWithoutFeedback>
           </View>
         </View>
 
+        {/* ── Tabs ── */}
         <ScrollView horizontal showsHorizontalScrollIndicator={false}>
           <View style={styles.tabsRow}>
-            {TABS.map((tab) => (
-              <Pressable
-                key={tab.value}
-                style={[styles.tab, activeTab === tab.value && styles.tabActive]}
-                onPress={() => setActiveTab(tab.value)}
-              >
-                <Text style={[styles.tabText, activeTab === tab.value && styles.tabTextActive]}>
-                  {tab.label}
-                </Text>
-              </Pressable>
-            ))}
+            {TABS.map((tab) => {
+              const count = getTabCount(tab.value);
+              return (
+                <Pressable
+                  key={tab.value}
+                  style={[styles.tab, activeTab === tab.value && styles.tabActive]}
+                  onPress={() => setActiveTab(tab.value)}
+                >
+                  <View style={styles.tabInner}>
+                    <Text style={[
+                      styles.tabText,
+                      activeTab === tab.value && styles.tabTextActive,
+                    ]}>
+                      {tab.label}
+                    </Text>
+                    {count > 0 && (
+                      <View style={[
+                        styles.tabBadge,
+                        activeTab === tab.value && styles.tabBadgeActive,
+                      ]}>
+                        <Text style={[
+                          styles.tabBadgeText,
+                          activeTab === tab.value && styles.tabBadgeTextActive,
+                        ]}>
+                          {count}
+                        </Text>
+                      </View>
+                    )}
+                  </View>
+                </Pressable>
+              );
+            })}
           </View>
         </ScrollView>
       </View>
 
+      {/* ── Orders list ── */}
       <FlatList
         data={filtered}
         keyExtractor={(item) => item.id}
-        contentContainerStyle={styles.list}
+        contentContainerStyle={[
+          styles.list,
+          filtered.length === 0 && { flexGrow: 1 },
+        ]}
         style={{ flex: 1 }}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor="#111827" />
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={handleRefresh}
+            tintColor="#111827"
+          />
         }
         renderItem={renderOrder}
         ListEmptyComponent={
           <View style={styles.emptyWrap}>
             <View style={styles.emptyIconWrap}>
-              <Text style={styles.emptyIcon}>📦</Text>
+              <Text style={styles.emptyIcon}>
+                {activeTab === 'cancelled' ? '🚫' : '📦'}
+              </Text>
             </View>
-            <Text style={styles.emptyTitle}>No orders yet</Text>
-            <Text style={styles.emptyText}>Your placed orders will appear here</Text>
+            <Text style={styles.emptyTitle}>
+              {loading
+                ? 'Loading orders…'
+                : activeTab === 'all'
+                  ? 'No orders yet'
+                  : `No ${activeTab === 'confirmed' ? 'processing' : activeTab} orders`}
+            </Text>
+            <Text style={styles.emptyText}>
+              {loading
+                ? ''
+                : activeTab === 'all'
+                  ? 'Your placed orders will appear here'
+                  : 'Orders in this status will appear here'}
+            </Text>
           </View>
         }
       />

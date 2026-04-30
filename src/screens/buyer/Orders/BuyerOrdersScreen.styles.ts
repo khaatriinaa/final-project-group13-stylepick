@@ -37,9 +37,7 @@ export const styles = StyleSheet.create({
     justifyContent: 'center',
     position: 'relative',
   },
-  iconBtnText: {
-    fontSize: 16,
-  },
+  iconBtnText: { fontSize: 16 },
   iconBadge: {
     position: 'absolute',
     top: 2,
@@ -57,10 +55,7 @@ export const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#FFFFFF',
   },
-  formalBell: {
-    fontSize: 18,
-    color: '#374151',
-  },
+  formalBell: { fontSize: 18, color: '#374151' },
   notifDot: {
     position: 'absolute',
     top: 10,
@@ -87,6 +82,11 @@ export const styles = StyleSheet.create({
   tabActive: {
     borderBottomColor: '#111827',
   },
+  tabInner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+  },
   tabText: {
     fontSize: 13,
     fontWeight: '500',
@@ -95,6 +95,26 @@ export const styles = StyleSheet.create({
   tabTextActive: {
     color: '#111827',
     fontWeight: '600',
+  },
+  tabBadge: {
+    minWidth: 16,
+    height: 16,
+    borderRadius: 8,
+    backgroundColor: '#F3F4F6',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 4,
+  },
+  tabBadgeActive: {
+    backgroundColor: '#111827',
+  },
+  tabBadgeText: {
+    fontSize: 9,
+    fontWeight: '700',
+    color: '#9CA3AF',
+  },
+  tabBadgeTextActive: {
+    color: '#FFFFFF',
   },
 
   // ── List ─────────────────────────────────────────────────────────────────────
@@ -109,6 +129,11 @@ export const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   cardPressed: { opacity: 0.8 },
+  cardCancelled: {
+    opacity: 0.82,
+    borderColor: '#FECACA',
+    borderWidth: 1,
+  },
 
   cardHeader: {
     flexDirection: 'row',
@@ -135,7 +160,7 @@ export const styles = StyleSheet.create({
     fontWeight: '500',
   },
 
-  // Card body
+  // ── Card body ────────────────────────────────────────────────────────────────
   cardBody: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -155,29 +180,18 @@ export const styles = StyleSheet.create({
     flexShrink: 0,
     overflow: 'hidden',
   },
-  productImgImage: {
-    width: 52,
-    height: 52,
-  },
-  productImgPlaceholder: {
-    fontSize: 22,
-  },
-  productInfo: {
-    flex: 1,
-    minWidth: 0,
-  },
+  productImgImage: { width: 52, height: 52 },
+  productImgPlaceholder: { fontSize: 22 },
+  productInfo: { flex: 1, minWidth: 0 },
   productName: {
     fontSize: 13,
     fontWeight: '500',
     color: '#111827',
     marginBottom: 3,
   },
-  productMeta: {
-    fontSize: 12,
-    color: '#9CA3AF',
-  },
+  productMeta: { fontSize: 12, color: '#9CA3AF' },
 
-  // Card footer
+  // ── Card footer ──────────────────────────────────────────────────────────────
   cardFooter: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -187,10 +201,7 @@ export const styles = StyleSheet.create({
     borderTopWidth: 0.5,
     borderTopColor: '#F3F4F6',
   },
-  orderDate: {
-    fontSize: 12,
-    color: '#9CA3AF',
-  },
+  orderDate: { fontSize: 12, color: '#9CA3AF' },
   footerRight: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -207,16 +218,15 @@ export const styles = StyleSheet.create({
     borderRadius: 6,
     backgroundColor: '#111827',
   },
-  detailsBtnPressed: {
-    opacity: 0.75,
-  },
+  detailsBtnPressed: { opacity: 0.75 },
+  detailsBtnCancelled: { backgroundColor: '#9CA3AF' },
   detailsBtnText: {
     fontSize: 12,
     fontWeight: '500',
     color: '#FFFFFF',
   },
 
-  // ── Variant ───────────────────────────────────────────────────────────────
+  // ── Variant chip ─────────────────────────────────────────────────────────────
   variantChip: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -241,9 +251,16 @@ export const styles = StyleSheet.create({
     fontSize: 11,
     color: '#374151',
     fontWeight: '500',
-  }, 
+  },
+
   // ── Empty state ───────────────────────────────────────────────────────────────
-  emptyWrap: { alignItems: 'center', paddingTop: 48 },
+  emptyWrap: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingTop: 48,
+    paddingHorizontal: 32,
+  },
   emptyIconWrap: {
     width: 56,
     height: 56,
@@ -254,6 +271,17 @@ export const styles = StyleSheet.create({
     marginBottom: 16,
   },
   emptyIcon: { fontSize: 24 },
-  emptyTitle: { fontSize: 15, fontWeight: '500', color: '#111827', marginBottom: 6 },
-  emptyText: { fontSize: 13, color: '#9CA3AF', lineHeight: 20, textAlign: 'center' },
+  emptyTitle: {
+    fontSize: 15,
+    fontWeight: '500',
+    color: '#111827',
+    marginBottom: 6,
+    textAlign: 'center',
+  },
+  emptyText: {
+    fontSize: 13,
+    color: '#9CA3AF',
+    lineHeight: 20,
+    textAlign: 'center',
+  },
 });

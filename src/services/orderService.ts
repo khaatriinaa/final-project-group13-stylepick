@@ -15,12 +15,11 @@ import { supabase } from './supabaseClient';
 const generateId = () => Math.random().toString(36).slice(2) + Date.now().toString(36);
 
 // ─── Supabase row → Order ─────────────────────────────────────────────────────
-// orders table stores items as jsonb, so no join needed
 const mapRow = (row: any): Order => ({
   id:              row.id,
   buyerId:         row.buyer_id,
   sellerId:        row.seller_id,
-  items:           row.items ?? [],           // ← jsonb column, already parsed
+  items:           row.items ?? [],
   status:          row.status        as OrderStatus,
   paymentStatus:   row.payment_status as any,
   paymentMethod:   row.payment_method as any,
@@ -38,7 +37,7 @@ export const getMyOrdersAsBuyer = async (buyerId: string): Promise<Order[]> => {
   try {
     const { data, error } = await supabase
       .from('orders')
-      .select('*')                            // ← simple select, no join
+      .select('*')
       .eq('buyer_id', buyerId)
       .order('created_at', { ascending: false });
     if (error) throw error;
@@ -59,7 +58,7 @@ export const getMyOrdersAsSeller = async (sellerId: string): Promise<Order[]> =>
   try {
     const { data, error } = await supabase
       .from('orders')
-      .select('*')                            // ← simple select, no join
+      .select('*')
       .eq('seller_id', sellerId)
       .order('created_at', { ascending: false });
     if (error) throw error;
@@ -80,7 +79,7 @@ export const getOrderById = async (orderId: string): Promise<Order | null> => {
   try {
     const { data, error } = await supabase
       .from('orders')
-      .select('*')                            // ← simple select, no join
+      .select('*')
       .eq('id', orderId)
       .single();
     if (error) throw error;
@@ -140,6 +139,7 @@ export const placeOrder = async (payload: PlaceOrderPayload): Promise<Order> => 
     updatedAt:       now,
   };
 
+  // Save to local storage first as immediate fallback
   await Storage.set(KEYS.ORDERS, [...all, newOrder]);
 
   for (const item of payload.items) {
@@ -155,13 +155,13 @@ export const placeOrder = async (payload: PlaceOrderPayload): Promise<Order> => 
   await notifyOrderPlaced(newOrder.id, totalAmount);
   await notifyNewOrder(newOrder.id, totalAmount);
 
-  // ─── Supabase: insert order with items as jsonb ───────────────────────────
+  // ─── Supabase: insert order ───────────────────────────────────────────────
   try {
     const { error: orderError } = await supabase.from('orders').insert({
       id:               newOrder.id,
       buyer_id:         newOrder.buyerId,
       seller_id:        newOrder.sellerId,
-      items:            newOrder.items,       // ← store full items array as jsonb
+      items:            newOrder.items,
       status:           newOrder.status,
       payment_status:   newOrder.paymentStatus,
       payment_method:   newOrder.paymentMethod,
@@ -173,11 +173,10 @@ export const placeOrder = async (payload: PlaceOrderPayload): Promise<Order> => 
       updated_at:       newOrder.updatedAt,
     });
     if (orderError) throw orderError;
-    console.log('Order saved to Supabase:', newOrder.id); // ✅ DEBUG
+    console.log('Order saved to Supabase:', newOrder.id);
   } catch (supabaseError) {
     console.warn('Supabase placeOrder error (local save succeeded):', supabaseError);
   }
-  // ─────────────────────────────────────────────────────────────────────────
 
   return newOrder;
 };
@@ -189,21 +188,52 @@ export const updateOrderStatus = async (
   newStatus: OrderStatus,
   buyerId:   string,
 ): Promise<void> => {
-  const all = await Storage.getList<Order>(KEYS.ORDERS);
   const now = new Date().toISOString();
 
-  const newList = all.map((o) => {
-    if (o.id !== orderId) return o;
-    const paymentStatus =
-      newStatus === 'delivered' ? 'paid'      :
-      newStatus === 'cancelled' ? 'cancelled' :
-      newStatus === 'refunded'  ? 'refunded'  :
-      o.paymentStatus;
-    return { ...o, status: newStatus, paymentStatus, updatedAt: now };
-  });
+  const paymentStatus =
+    newStatus === 'delivered' ? 'paid'      :
+    newStatus === 'cancelled' ? 'cancelled' :
+    newStatus === 'refunded'  ? 'refunded'  :
+    undefined;
 
-  await Storage.set(KEYS.ORDERS, newList);
+  // ─── Supabase first (source of truth) ────────────────────────────────────
+  try {
+    const supabaseUpdates: Record<string, any> = {
+      status:     newStatus,
+      updated_at: now,
+    };
+    if (paymentStatus !== undefined) {
+      supabaseUpdates.payment_status = paymentStatus;
+    }
 
+    const { error } = await supabase
+      .from('orders')
+      .update(supabaseUpdates)
+      .eq('id', orderId);
+    if (error) throw error;
+    console.log('Order status updated in Supabase:', orderId, newStatus);
+  } catch (supabaseError) {
+    console.warn('Supabase updateOrderStatus error (falling back to local):', supabaseError);
+  }
+
+  // ─── Sync local storage ───────────────────────────────────────────────────
+  try {
+    const all = await Storage.getList<Order>(KEYS.ORDERS);
+    const newList = all.map((o) => {
+      if (o.id !== orderId) return o;
+      return {
+        ...o,
+        status: newStatus,
+        paymentStatus: (paymentStatus ?? o.paymentStatus) as any,
+        updatedAt: now,
+      };
+    });
+    await Storage.set(KEYS.ORDERS, newList);
+  } catch (localError) {
+    console.warn('Local storage sync after status update failed:', localError);
+  }
+
+  // ─── Notifications ────────────────────────────────────────────────────────
   const statusLabels: Partial<Record<OrderStatus, string>> = {
     confirmed: 'confirmed by the seller',
     preparing: 'being prepared',
@@ -220,71 +250,87 @@ export const updateOrderStatus = async (
     });
     await notifyOrderStatusUpdate(orderId, label);
   }
-
-  // ─── Supabase ─────────────────────────────────────────────────────────────
-  try {
-    const paymentStatus =
-      newStatus === 'delivered' ? 'paid'      :
-      newStatus === 'cancelled' ? 'cancelled' :
-      newStatus === 'refunded'  ? 'refunded'  :
-      undefined;
-
-    const supabaseUpdates: Record<string, any> = {
-      status:     newStatus,
-      updated_at: now,
-    };
-    if (paymentStatus !== undefined) {
-      supabaseUpdates.payment_status = paymentStatus;
-    }
-
-    const { error } = await supabase
-      .from('orders')
-      .update(supabaseUpdates)
-      .eq('id', orderId);
-    if (error) throw error;
-    console.log('Order status updated in Supabase:', orderId, newStatus); // ✅ DEBUG
-  } catch (supabaseError) {
-    console.warn('Supabase updateOrderStatus error (local update succeeded):', supabaseError);
-  }
-  // ─────────────────────────────────────────────────────────────────────────
 };
 
-// ─── UPDATE: Buyer cancels a pending order ────────────────────────────────────
+// ─── CANCEL: Buyer cancels a pending order ────────────────────────────────────
 
 export const cancelOrder = async (orderId: string, sellerId: string): Promise<void> => {
-  const all   = await Storage.getList<Order>(KEYS.ORDERS);
-  const order = all.find((o) => o.id === orderId);
-  if (!order) throw new Error('Order not found.');
-  if (order.status !== 'pending') throw new Error('Only pending orders can be cancelled.');
+  const now = new Date().toISOString();
 
-  const now     = new Date().toISOString();
-  const newList = all.map((o) =>
-    o.id === orderId
-      ? { ...o, status: 'cancelled' as OrderStatus, paymentStatus: 'cancelled' as const, updatedAt: now }
-      : o,
-  );
-  await Storage.set(KEYS.ORDERS, newList);
+  // ─── Step 1: Fetch live status from Supabase — never trust local storage ──
+  // Local can be stale (e.g. a previous failed cancel wrote 'cancelled' locally
+  // but never actually updated Supabase, causing a false "already cancelled").
+  const { data: statusData, error: statusError } = await supabase
+    .from('orders')
+    .select('status, buyer_id')
+    .eq('id', orderId)
+    .single();
 
+  if (statusError || !statusData) {
+    throw new Error('Could not fetch order status. Please check your connection and try again.');
+  }
+
+  const currentStatus = statusData.status as OrderStatus;
+  console.log('[cancelOrder] Supabase current status:', currentStatus, 'for order:', orderId);
+
+  // ─── Step 2: Guard — only pending orders can be cancelled ────────────────
+  if (currentStatus !== 'pending') {
+    throw new Error(
+      currentStatus === 'cancelled'
+        ? 'This order has already been cancelled.'
+        : currentStatus === 'shipped' || currentStatus === 'delivered'
+          ? 'This order has already been shipped and cannot be cancelled.'
+          : `Orders with status "${currentStatus}" can no longer be cancelled.`,
+    );
+  }
+
+  // ─── Step 3: Update Supabase ──────────────────────────────────────────────
+  // NOTE: Do NOT use .select() after .update() here — if RLS restricts the
+  // buyer's read policy, Supabase returns an empty array even on success,
+  // which was causing the false "Order could not be updated" error.
+  // We verify success purely via the absence of updateError.
+  const { error: updateError } = await supabase
+    .from('orders')
+    .update({
+      status:         'cancelled',
+      payment_status: 'cancelled',
+      updated_at:     now,
+    })
+    .eq('id', orderId);
+
+  console.log('[cancelOrder] Supabase update error:', updateError ?? 'none');
+
+  if (updateError) {
+    throw new Error('Failed to cancel order. Please try again.');
+  }
+
+  console.log('[cancelOrder] Successfully cancelled in Supabase:', orderId);
+
+  // ─── Step 4: Sync local storage to match Supabase ────────────────────────
+  try {
+    const all = await Storage.getList<Order>(KEYS.ORDERS);
+    const newList = all.map((o) =>
+      o.id === orderId
+        ? { ...o, status: 'cancelled' as OrderStatus, paymentStatus: 'cancelled' as const, updatedAt: now }
+        : o,
+    );
+    await Storage.set(KEYS.ORDERS, newList);
+  } catch (localError) {
+    // Non-fatal — Supabase is source of truth
+    console.warn('Local storage sync after cancel failed:', localError);
+  }
+
+  // ─── Step 5: Notify seller ────────────────────────────────────────────────
   await createNotification({
     userId:  sellerId,
     message: `Order #${orderId.slice(0, 8).toUpperCase()} was cancelled by the buyer.`,
     orderId,
   });
 
-  // ─── Supabase ─────────────────────────────────────────────────────────────
+  // ─── Step 6: Push notification ────────────────────────────────────────────
   try {
-    const { error } = await supabase
-      .from('orders')
-      .update({
-        status:         'cancelled',
-        payment_status: 'cancelled',
-        updated_at:     now,
-      })
-      .eq('id', orderId);
-    if (error) throw error;
-    console.log('Order cancelled in Supabase:', orderId); // ✅ DEBUG
-  } catch (supabaseError) {
-    console.warn('Supabase cancelOrder error (local update succeeded):', supabaseError);
+    await notifyOrderStatusUpdate(orderId, 'cancelled');
+  } catch (e) {
+    console.warn('[cancelOrder] Push notification failed (non-fatal):', e);
   }
-  // ─────────────────────────────────────────────────────────────────────────
 };

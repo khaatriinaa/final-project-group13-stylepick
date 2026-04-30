@@ -1,26 +1,25 @@
 // src/screens/buyer/Orders/BuyerOrderDetailScreen.tsx
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
-  View, Text, ScrollView, Image, Pressable, Alert, ActivityIndicator,
+  View, Text, ScrollView, Image, Pressable, Alert,
+  ActivityIndicator,
 } from 'react-native';
 import { BuyerOrderDetailScreenProps } from '../../../props/props';
-import { OrderStatus } from '../../../types';
-import { cancelOrder } from '../../../services/orderService';
+import { Order, OrderStatus } from '../../../types';
+import { cancelOrder, getOrderById } from '../../../services/orderService';
 import { styles } from './BuyerOrderDetailScreen.styles';
 
-// Mirrors STATUS_BADGE_STYLE from BuyerOrdersScreen
 const STATUS_BADGE_STYLE: Record<OrderStatus, { bg: string; text: string }> = {
   pending:   { bg: '#FFFBEB', text: '#92400E' },
   confirmed: { bg: '#EEF2FF', text: '#3730A3' },
   preparing: { bg: '#EEF2FF', text: '#3730A3' },
   shipped:   { bg: '#ECFDF5', text: '#065F46' },
   delivered: { bg: '#DCFCE7', text: '#14532D' },
-  cancelled: { bg: '#F3F4F6', text: '#6B7280' },
+  cancelled: { bg: '#FEF2F2', text: '#991B1B' },
   refunded:  { bg: '#F3F4F6', text: '#6B7280' },
 };
 
-// Mirrors STATUS_LABEL from BuyerOrdersScreen
 const STATUS_LABEL: Record<OrderStatus, string> = {
   pending:   'Pending',
   confirmed: 'Processing',
@@ -43,13 +42,43 @@ const STEP_LABEL: Record<OrderStatus, string> = {
   refunded:  'Refunded',
 };
 
-export default function BuyerOrderDetailScreen({ navigation, route }: BuyerOrderDetailScreenProps) {
-  const { order } = route.params;
-  const badge = STATUS_BADGE_STYLE[order.status];
-  const [cancelling, setCancelling] = useState(false);
+const CANCELLABLE_STATUSES: OrderStatus[] = ['pending'];
 
-  const isCancelled = order.status === 'cancelled' || order.status === 'refunded';
-  const currentStep = STATUS_STEPS.indexOf(order.status as OrderStatus);
+export default function BuyerOrderDetailScreen({ navigation, route }: BuyerOrderDetailScreenProps) {
+  const { order: paramOrder } = route.params;
+
+  const [order, setOrder]                 = useState<Order>(paramOrder);
+  const [cancelling, setCancelling]       = useState(false);
+  const [loadingStatus, setLoadingStatus] = useState(true);
+
+  // Prevents the background fetch from overwriting a user-initiated cancel
+  const userCancelledRef = useRef(false);
+
+  // ── Fetch live order from Supabase on mount ─────────────────────────────
+  useEffect(() => {
+    let isMounted = true;
+    (async () => {
+      try {
+        const fresh = await getOrderById(paramOrder.id);
+        console.log('[DetailScreen] Fresh order status from Supabase:', fresh?.status);
+        if (isMounted && fresh && !userCancelledRef.current) {
+          setOrder(fresh);
+        }
+      } catch (e) {
+        console.warn('Could not refresh order:', e);
+      } finally {
+        if (isMounted) setLoadingStatus(false);
+      }
+    })();
+    return () => { isMounted = false; };
+  }, [paramOrder.id]);
+
+  const currentStatus = order.status;
+  const badge         = STATUS_BADGE_STYLE[currentStatus];
+  const isCancelled   = currentStatus === 'cancelled' || currentStatus === 'refunded';
+  // Only allow cancelling after live status is confirmed loaded
+  const isCancellable = !loadingStatus && CANCELLABLE_STATUSES.includes(currentStatus);
+  const currentStep   = STATUS_STEPS.indexOf(currentStatus);
 
   const handleCancel = () => {
     Alert.alert(
@@ -64,24 +93,38 @@ export default function BuyerOrderDetailScreen({ navigation, route }: BuyerOrder
             setCancelling(true);
             try {
               await cancelOrder(order.id, order.sellerId);
-              Alert.alert('Cancelled', 'Your order has been cancelled.', [
-                { text: 'OK', onPress: () => navigation.goBack() },
-              ]);
+
+              // Lock before setOrder so no stale fetch can overwrite
+              userCancelledRef.current = true;
+
+              setOrder((prev) => ({
+                ...prev,
+                status:        'cancelled' as OrderStatus,
+                paymentStatus: 'cancelled' as any,
+                updatedAt:     new Date().toISOString(),
+              }));
+
+              Alert.alert(
+                'Order Cancelled',
+                'Your order has been successfully cancelled.',
+                [{ text: 'OK', onPress: () => navigation.goBack() }],
+              );
             } catch (e: any) {
-              Alert.alert('Error', e.message);
+              console.log('[handleCancel] Error:', e.message);
+              Alert.alert('Error', e.message ?? 'Something went wrong. Please try again.');
             } finally {
               setCancelling(false);
             }
           },
         },
-      ]
+      ],
     );
   };
 
   return (
     <View style={styles.container}>
 
-      {/* ── Header (mirrors BuyerOrdersScreen header style) ── */}
+      {/* ── Header ── */}
       <View style={styles.header}>
         <Pressable onPress={() => navigation.goBack()} style={styles.backBtn}>
           <Text style={styles.backBtnText}>← Back</Text>
@@ -95,7 +138,7 @@ export default function BuyerOrderDetailScreen({ navigation, route }: BuyerOrder
         showsVerticalScrollIndicator={false}
       >
 
-        {/* ── Order ID + Status (mirrors cardHeader) ── */}
+        {/* ── Order ID + Status ── */}
         <View style={styles.section}>
           <View style={styles.sectionBody}>
             <View style={styles.orderIdRow}>
@@ -104,7 +147,7 @@ export default function BuyerOrderDetailScreen({ navigation, route }: BuyerOrder
               </Text>
               <View style={[styles.badge, { backgroundColor: badge.bg }]}>
                 <Text style={[styles.badgeText, { color: badge.text }]}>
-                  {STATUS_LABEL[order.status]}
+                  {loadingStatus ? '…' : STATUS_LABEL[currentStatus]}
                 </Text>
               </View>
             </View>
@@ -116,8 +159,28 @@ export default function BuyerOrderDetailScreen({ navigation, route }: BuyerOrder
           </View>
         </View>
 
-        {/* ── Progress Tracker (only for active orders) ── */}
-        {!isCancelled && (
+        {/* ── Loading skeleton ── */}
+        {loadingStatus && (
+          <View style={[styles.section, { padding: 20, alignItems: 'center' }]}>
+            <ActivityIndicator size="small" color="#9CA3AF" />
+          </View>
+        )}
+
+        {/* ── Cancelled Banner ── */}
+        {!loadingStatus && isCancelled && (
+          <View style={styles.cancelledBanner}>
+            <Text style={styles.cancelledBannerIcon}>✕</Text>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.cancelledBannerTitle}>Order Cancelled</Text>
+              <Text style={styles.cancelledBannerSub}>
+                This order has been cancelled and will no longer be processed.
+              </Text>
+            </View>
+          </View>
+        )}
+
+        {/* ── Progress Tracker (active orders only) ── */}
+        {!loadingStatus && !isCancelled && (
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
               <Text style={styles.sectionTitle}>Order Progress</Text>
@@ -126,26 +189,24 @@ export default function BuyerOrderDetailScreen({ navigation, route }: BuyerOrder
               <View style={styles.progressRow}>
                 {STATUS_STEPS.map((step, index) => {
                   const isCompleted = currentStep >= index;
-                  const isActive = currentStep === index;
+                  const isActive    = currentStep === index;
                   return (
                     <React.Fragment key={step}>
                       <View style={styles.progressStepWrap}>
                         <View style={[
                           styles.progressDot,
                           isCompleted && styles.progressDotCompleted,
-                          isActive && styles.progressDotActive,
+                          isActive    && styles.progressDotActive,
                         ]}>
                           {isCompleted && !isActive && (
                             <Text style={styles.progressCheck}>✓</Text>
                           )}
-                          {isActive && (
-                            <View style={styles.progressActiveDot} />
-                          )}
+                          {isActive && <View style={styles.progressActiveDot} />}
                         </View>
                         <Text style={[
                           styles.progressLabel,
                           isCompleted && styles.progressLabelCompleted,
-                          isActive && styles.progressLabelActive,
+                          isActive    && styles.progressLabelActive,
                         ]}>
                           {STEP_LABEL[step]}
                         </Text>
@@ -164,59 +225,59 @@ export default function BuyerOrderDetailScreen({ navigation, route }: BuyerOrder
           </View>
         )}
 
-        {/* ── Items Ordered (mirrors cardBody) ── */}
+        {/* ── Items Ordered ── */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>Items Ordered</Text>
           </View>
           <View style={styles.sectionBody}>
-          {order.items.map((ci, i) => (
-            <View
-              key={i}
-              style={[
-                styles.itemRow,
-                i < order.items.length - 1 && styles.itemRowBorder,
-              ]}
-            >
-              <View style={styles.itemImageWrap}>
-                {ci.product.images?.[0] ? (
-                  <Image
-                    source={{ uri: ci.product.images[0] }}
-                    style={styles.itemImage}
-                    resizeMode="cover"
-                  />
-                ) : (
-                  <Text style={styles.itemImagePlaceholder}>🏷</Text>
-                )}
-              </View>
-              <View style={styles.itemInfo}>
-                <Text style={styles.itemName} numberOfLines={2}>
-                  {ci.product.name}
+            {order.items.map((ci, i) => (
+              <View
+                key={i}
+                style={[
+                  styles.itemRow,
+                  i < order.items.length - 1 && styles.itemRowBorder,
+                ]}
+              >
+                <View style={styles.itemImageWrap}>
+                  {ci.product?.images?.[0] ? (
+                    <Image
+                      source={{ uri: ci.product.images[0] }}
+                      style={styles.itemImage}
+                      resizeMode="cover"
+                    />
+                  ) : (
+                    <Text style={styles.itemImagePlaceholder}>🏷</Text>
+                  )}
+                </View>
+                <View style={styles.itemInfo}>
+                  <Text style={styles.itemName} numberOfLines={2}>
+                    {ci.product?.name ?? ci.productName ?? ci.name ?? '—'}
+                  </Text>
+                  {(ci.selectedColor || ci.selectedSize || ci.color || ci.size) && (
+                    <View style={styles.variantChip}>
+                      <View style={styles.variantDot} />
+                      <Text style={styles.variantText}>
+                        {[
+                          ci.selectedColor ?? ci.color,
+                          ci.selectedSize  ?? ci.size,
+                        ].filter(Boolean).join(' / ')}
+                      </Text>
+                    </View>
+                  )}
+                  <Text style={styles.itemUnit}>
+                    ₱{(ci.product?.price ?? ci.price ?? 0).toLocaleString()} × {ci.quantity}
+                  </Text>
+                </View>
+                <Text style={styles.itemSubtotal}>
+                  ₱{((ci.product?.price ?? ci.price ?? 0) * ci.quantity).toLocaleString()}
                 </Text>
-
-                {/* ── Variant chip ── */}
-                {(ci.selectedColor || ci.selectedSize) && (
-                  <View style={styles.variantChip}>
-                    <View style={styles.variantDot} />
-                    <Text style={styles.variantText}>
-                      {[ci.selectedColor, ci.selectedSize].filter(Boolean).join(' / ')}
-                    </Text>
-                  </View>
-                )}
-
-                <Text style={styles.itemUnit}>
-                  ₱{ci.product.price.toLocaleString()} × {ci.quantity}
-                </Text>
               </View>
-              <Text style={styles.itemSubtotal}>
-                ₱{(ci.product.price * ci.quantity).toLocaleString()}
-              </Text>
-            </View>
-          ))}
+            ))}
           </View>
         </View>
 
-        {/* ── Order Summary (mirrors cardFooter) ── */}
+        {/* ── Order Summary ── */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>Order Summary</Text>
@@ -224,9 +285,7 @@ export default function BuyerOrderDetailScreen({ navigation, route }: BuyerOrder
           <View style={styles.sectionBody}>
             <View style={styles.summaryRow}>
               <Text style={styles.summaryLabel}>Subtotal</Text>
-              <Text style={styles.summaryValue}>
-                ₱{order.totalAmount.toLocaleString()}
-              </Text>
+              <Text style={styles.summaryValue}>₱{order.totalAmount.toLocaleString()}</Text>
             </View>
             <View style={styles.summaryRow}>
               <Text style={styles.summaryLabel}>Shipping</Text>
@@ -239,15 +298,13 @@ export default function BuyerOrderDetailScreen({ navigation, route }: BuyerOrder
             <View style={[styles.summaryRow, { marginBottom: 0 }]}>
               <Text style={styles.summaryLabel}>Payment Status</Text>
               <Text style={styles.summaryValue}>
-                {order.paymentStatus.toUpperCase()}
+                {(isCancelled ? 'CANCELLED' : order.paymentStatus ?? '').toUpperCase()}
               </Text>
             </View>
             <View style={styles.summaryDivider} />
             <View style={styles.summaryTotalRow}>
               <Text style={styles.summaryTotalLabel}>Total</Text>
-              <Text style={styles.summaryTotalValue}>
-                ₱{order.totalAmount.toLocaleString()}
-              </Text>
+              <Text style={styles.summaryTotalValue}>₱{order.totalAmount.toLocaleString()}</Text>
             </View>
           </View>
         </View>
@@ -262,8 +319,8 @@ export default function BuyerOrderDetailScreen({ navigation, route }: BuyerOrder
           </View>
         </View>
 
-        {/* ── Cancel Button (pending only) ── */}
-        {order.status === 'pending' && (
+        {/* ── Cancel Button — only shown when live status is loaded and pending ── */}
+        {isCancellable && (
           <Pressable
             style={[styles.cancelBtn, cancelling && styles.cancelBtnDisabled]}
             onPress={handleCancel}

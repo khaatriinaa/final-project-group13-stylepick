@@ -4,7 +4,7 @@ import { StyleSheet } from 'react-native';
 export const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#F5F5F5' },
 
-  // ── Header (mirrors BuyerOrdersScreen header) ────────────────────────────────
+  // ── Header ────────────────────────────────────────────────────────────────────
   header: {
     backgroundColor: '#FFFFFF',
     paddingTop: 52,
@@ -22,14 +22,13 @@ export const styles = StyleSheet.create({
 
   scrollContent: { padding: 12, gap: 10 },
 
-  // ── Section card (mirrors .card) ─────────────────────────────────────────────
+  // ── Section card ─────────────────────────────────────────────────────────────
   section: {
     backgroundColor: '#FFFFFF',
     borderRadius: 12,
     borderWidth: 0.5,
     borderColor: '#E5E7EB',
     overflow: 'hidden',
-    marginBottom: 0,
   },
   sectionHeader: {
     paddingHorizontal: 14,
@@ -49,7 +48,7 @@ export const styles = StyleSheet.create({
     paddingVertical: 12,
   },
 
-  // ── Order ID + status (mirrors .cardHeader) ──────────────────────────────────
+  // ── Order ID + status ─────────────────────────────────────────────────────────
   orderIdRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -74,6 +73,34 @@ export const styles = StyleSheet.create({
   orderDate: {
     fontSize: 12,
     color: '#9CA3AF',
+  },
+
+  // ── Cancelled banner ──────────────────────────────────────────────────────────
+  cancelledBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    backgroundColor: '#FEF2F2',
+    borderRadius: 10,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: '#FECACA',
+  },
+  cancelledBannerIcon: {
+    fontSize: 20,
+    color: '#EF4444',
+    fontWeight: '700',
+  },
+  cancelledBannerTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#991B1B',
+    marginBottom: 2,
+  },
+  cancelledBannerSub: {
+    fontSize: 12,
+    color: '#B91C1C',
+    flexShrink: 1,
   },
 
   // ── Progress tracker ──────────────────────────────────────────────────────────
@@ -163,7 +190,7 @@ export const styles = StyleSheet.create({
   itemUnit: { fontSize: 12, color: '#9CA3AF' },
   itemSubtotal: { fontSize: 13, fontWeight: '600', color: '#111827' },
 
-  // ── Variant ───────────────────────────────────────────────────────────────
+  // ── Variant ───────────────────────────────────────────────────────────────────
   variantChip: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -188,7 +215,8 @@ export const styles = StyleSheet.create({
     fontSize: 11,
     color: '#374151',
     fontWeight: '500',
-  }, 
+  },
+
   // ── Summary ───────────────────────────────────────────────────────────────────
   summaryRow: {
     flexDirection: 'row',
@@ -220,9 +248,9 @@ export const styles = StyleSheet.create({
     paddingVertical: 14,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: '#FECACA',
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#FFF5F5',
   },
   cancelBtnDisabled: { opacity: 0.5 },
   cancelBtnText: { fontSize: 14, fontWeight: '600', color: '#EF4444' },
