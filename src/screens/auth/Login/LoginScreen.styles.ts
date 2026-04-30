@@ -34,11 +34,6 @@ export const styles = StyleSheet.create({
     backgroundColor: C.ink,
   },
 
-  inner: {
-    flex: 1,
-    backgroundColor: C.ink,
-  },
-
   // ── Hero ──────────────────────────────────────────────────────────────────
   hero: {
     height: HERO_HEIGHT,
@@ -46,7 +41,7 @@ export const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingBottom: 20,
-    paddingTop: 24,
+    paddingTop: 44,           // safe-area-friendly top padding without extra wrapper
     position: 'relative',
     overflow: 'hidden',
   },
@@ -109,14 +104,12 @@ export const styles = StyleSheet.create({
   },
 
   // ── Body ──────────────────────────────────────────────────────────────────
-  // bodyScroll: the ScrollView itself — fills remaining space, ivory bg + rounded top corners
   bodyScroll: {
     flex: 1,
     backgroundColor: C.ivory,
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
   },
-  // bodyContent: the ScrollView's contentContainerStyle — padding & min-height
   bodyContent: {
     flexGrow: 1,
     paddingHorizontal: 28,
@@ -280,8 +273,6 @@ export const styles = StyleSheet.create({
   trustDot: { width: 3, height: 3, borderRadius: 1.5, backgroundColor: C.placeholder },
   trustText: { fontSize: 10, color: C.placeholder, letterSpacing: 0.5 },
   heroDiamond: { marginBottom: 20 },
-
-  // Legacy body style (kept for compat — replaced by bodyScroll + bodyContent)
   body: {
     flex: 1,
     backgroundColor: C.ivory,

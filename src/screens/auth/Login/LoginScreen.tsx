@@ -5,13 +5,14 @@ import {
   Text,
   TextInput,
   ScrollView,
-  TouchableWithoutFeedback,
-  Keyboard,
   Platform,
   Pressable,
   Alert,
   ActivityIndicator,
+  StatusBar,
   KeyboardAvoidingView,
+  TouchableWithoutFeedback,
+  Keyboard,
 } from 'react-native';
 import { Formik } from 'formik';
 import * as Yup from 'yup';
@@ -20,7 +21,6 @@ import { login } from '../../../services/authService';
 import { useAuth } from '../../../context/AuthContext';
 import { styles } from './LoginScreen.styles';
 
-// ─── Validation ───────────────────────────────────────────────────────────────
 const Schema = Yup.object().shape({
   email: Yup.string()
     .email('Please enter a valid email address')
@@ -30,11 +30,10 @@ const Schema = Yup.object().shape({
     .required('Password is required'),
 });
 
-// ─── Component ────────────────────────────────────────────────────────────────
 export default function LoginScreen({ navigation }: LoginScreenProps) {
   const { setUser } = useAuth();
-  const [loading, setLoading]           = useState(false);
-  const [showPass, setShowPass]         = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [showPass, setShowPass] = useState(false);
   const [focusedField, setFocusedField] = useState<string | null>(null);
 
   const handleLogin = async (values: { email: string; password: string }) => {
@@ -53,43 +52,37 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
   };
 
   return (
-    <KeyboardAvoidingView
-      style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
+    <KeyboardAvoidingView 
+      style={styles.container} 
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
-      <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
-        {/* 
-          Use a plain View as the outer wrapper (not ScrollView) for the hero,
-          and a ScrollView only for the body content so the hero stays fixed.
-          keyboardShouldPersistTaps="handled" prevents the tap-to-dismiss
-          from stealing focus before the input receives it.
-        */}
-        <View style={styles.inner}>
-
-          {/* ── Hero ──────────────────────────────────────────────── */}
-          <View style={styles.hero}>
-            <View style={styles.heroGlow} />
-            <View style={styles.heroAccentDot} />
-
-            <View style={styles.brand}>
-              <View style={styles.brandMark}>
-                <Text style={styles.brandMarkText}>S</Text>
-              </View>
-              <Text style={styles.brandName}>StylePick</Text>
-              <View style={styles.brandRule} />
-              <Text style={styles.brandSub}>Curated fashion for you</Text>
-            </View>
+      <StatusBar barStyle="light-content" backgroundColor="transparent" translucent />
+      
+      {/* Hero Section */}
+      <View style={styles.hero}>
+        <View style={styles.heroGlow} />
+        <View style={styles.heroAccentDot} />
+        <View style={styles.brand}>
+          <View style={styles.brandMark}>
+            <Text style={styles.brandMarkText}>S</Text>
           </View>
+          <Text style={styles.brandName}>StylePick</Text>
+          <View style={styles.brandRule} />
+          <Text style={styles.brandSub}>Curated fashion for you</Text>
+        </View>
+      </View>
 
-          {/* ── Body (scrollable so fields are reachable on small screens) ── */}
-          <ScrollView
-            style={styles.bodyScroll}
-            contentContainerStyle={styles.bodyContent}
-            keyboardShouldPersistTaps="handled"
-            showsVerticalScrollIndicator={false}
-            bounces={false}
-          >
+      {/* Body: ScrollView handles the tap-to-dismiss and smooth scrolling */}
+      <ScrollView
+        style={styles.bodyScroll}
+        contentContainerStyle={styles.bodyContent}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+        // Removed automaticallyAdjustKeyboardInsets as it causes the "bounce" glitch
+        bounces={false}
+      >
+        <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+          <View>
             <View style={styles.formHeader}>
               <Text style={styles.formEyebrow}>Member access</Text>
               <Text style={styles.formTitle}>Welcome back!</Text>
@@ -105,7 +98,6 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
             >
               {({ handleChange, handleBlur, handleSubmit, values, errors, touched }) => (
                 <>
-                  {/* ── Email ─────────────────────────────────────── */}
                   <View style={styles.fieldGroup}>
                     <Text style={styles.label}>Email Address</Text>
                     <View style={[
@@ -120,6 +112,7 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
                         keyboardType="email-address"
                         autoCapitalize="none"
                         autoCorrect={false}
+                        returnKeyType="next"
                         onChangeText={handleChange('email')}
                         onBlur={() => { handleBlur('email'); setFocusedField(null); }}
                         onFocus={() => setFocusedField('email')}
@@ -131,7 +124,6 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
                     )}
                   </View>
 
-                  {/* ── Password ──────────────────────────────────── */}
                   <View style={styles.fieldGroup}>
                     <Text style={styles.label}>Password</Text>
                     <View style={[
@@ -144,9 +136,11 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
                         placeholder="••••••••"
                         placeholderTextColor="#B8B4C0"
                         secureTextEntry={!showPass}
+                        returnKeyType="done"
                         onChangeText={handleChange('password')}
                         onBlur={() => { handleBlur('password'); setFocusedField(null); }}
                         onFocus={() => setFocusedField('password')}
+                        onSubmitEditing={() => handleSubmit()}
                         value={values.password}
                       />
                       <Pressable onPress={() => setShowPass(v => !v)} hitSlop={10}>
@@ -160,7 +154,6 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
                     )}
                   </View>
 
-                  {/* ── Submit ────────────────────────────────────── */}
                   <Pressable
                     style={({ pressed }) => [
                       styles.submitBtn,
@@ -178,24 +171,21 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
               )}
             </Formik>
 
-            {/* ── Divider ───────────────────────────────────────── */}
             <View style={styles.dividerWrap}>
               <View style={styles.dividerLine} />
               <Text style={styles.dividerText}>or</Text>
               <View style={styles.dividerLine} />
             </View>
 
-            {/* ── Footer ────────────────────────────────────────── */}
             <View style={styles.footerRow}>
               <Text style={styles.footerText}>No account?</Text>
               <Pressable onPress={() => navigation.navigate('Register')}>
                 <Text style={styles.footerLink}>Create one</Text>
               </Pressable>
             </View>
-
-          </ScrollView>
-        </View>
-      </TouchableWithoutFeedback>
+          </View>
+        </TouchableWithoutFeedback>
+      </ScrollView>
     </KeyboardAvoidingView>
   );
 }
