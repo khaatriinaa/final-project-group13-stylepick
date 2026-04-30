@@ -5,6 +5,7 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Text, ActivityIndicator, View, Pressable, StyleSheet, Platform } from 'react-native';
 import { useAuth } from '../context/AuthContext';
+import SellerEditProfileScreen from '../screens/seller/Profile/SellerEditProfileScreen';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
@@ -196,6 +197,7 @@ function SellerNavigator() {
       <SellerStack.Screen name="AddProduct" component={AddProductScreen} />
       <SellerStack.Screen name="SellerNotifications" component={SellerNotificationsScreen} />
       <SellerStack.Screen name="SellerOrderDetail" component={SellerOrderDetailScreen} />
+      <SellerStack.Screen name="SellerEditProfile" component={SellerEditProfileScreen} />
     </SellerStack.Navigator>
   );
 }

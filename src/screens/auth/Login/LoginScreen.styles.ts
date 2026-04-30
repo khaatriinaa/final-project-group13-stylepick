@@ -1,4 +1,4 @@
-// src/screens/auth/Login/LoginScreen.styles.ts — Redesigned
+// src/screens/auth/Login/LoginScreen.styles.ts
 import { StyleSheet, Dimensions } from 'react-native';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
@@ -33,12 +33,10 @@ export const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: C.ink,
   },
-  scroll: {
-    flexGrow: 1,
-    minHeight: SCREEN_HEIGHT,
-  },
+
   inner: {
     flex: 1,
+    backgroundColor: C.ink,
   },
 
   // ── Hero ──────────────────────────────────────────────────────────────────
@@ -71,9 +69,6 @@ export const styles = StyleSheet.create({
     opacity: 0.06,
     bottom: 20,
     right: 40,
-  },
-  heroDiamond: {
-    marginBottom: 20,
   },
   brand: {
     alignItems: 'center',
@@ -114,12 +109,16 @@ export const styles = StyleSheet.create({
   },
 
   // ── Body ──────────────────────────────────────────────────────────────────
-  body: {
+  // bodyScroll: the ScrollView itself — fills remaining space, ivory bg + rounded top corners
+  bodyScroll: {
     flex: 1,
-    minHeight: SCREEN_HEIGHT - HERO_HEIGHT,
     backgroundColor: C.ivory,
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
+  },
+  // bodyContent: the ScrollView's contentContainerStyle — padding & min-height
+  bodyContent: {
+    flexGrow: 1,
     paddingHorizontal: 28,
     paddingTop: 36,
     paddingBottom: 40,
@@ -274,27 +273,22 @@ export const styles = StyleSheet.create({
     fontWeight: '700',
   },
 
-  // ── Trust ─────────────────────────────────────────────────────────────────
-  trustRow: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginTop: 32,
-    gap: 6,
-  },
-  trustDot: {
-    width: 3,
-    height: 3,
-    borderRadius: 1.5,
-    backgroundColor: C.placeholder,
-  },
-  trustText: {
-    fontSize: 10,
-    color: C.placeholder,
-    letterSpacing: 0.5,
-  },
-
   // Legacy (unused but kept for compat)
   forgotRow: { alignItems: 'flex-end', marginTop: -8, marginBottom: 24 },
   forgotText: { fontSize: 12, color: C.textMuted },
+  trustRow: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', marginTop: 32, gap: 6 },
+  trustDot: { width: 3, height: 3, borderRadius: 1.5, backgroundColor: C.placeholder },
+  trustText: { fontSize: 10, color: C.placeholder, letterSpacing: 0.5 },
+  heroDiamond: { marginBottom: 20 },
+
+  // Legacy body style (kept for compat — replaced by bodyScroll + bodyContent)
+  body: {
+    flex: 1,
+    backgroundColor: C.ivory,
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    paddingHorizontal: 28,
+    paddingTop: 36,
+    paddingBottom: 40,
+  },
 });

@@ -1,5 +1,5 @@
-// src/screens/auth/Register/RegisterScreen.styles.ts — Redesigned
-import { StyleSheet, Dimensions, Platform, StatusBar } from 'react-native';
+// src/screens/auth/Register/RegisterScreen.styles.ts
+import { StyleSheet, Platform, StatusBar } from 'react-native';
 
 const STATUS_BAR_HEIGHT = Platform.OS === 'android' ? (StatusBar.currentHeight ?? 24) : 44;
 const TOP_BAR_CONTENT_HEIGHT = 56;
@@ -30,18 +30,21 @@ export const styles = StyleSheet.create({
     backgroundColor: C.ink,
   },
 
+  // ← flat wrapper replacing the triple-nested containers
+  inner: {
+    flex: 1,
+    backgroundColor: C.ink,
+  },
+
   // ─── Top Bar ────────────────────────────────────────────────────────────────
-  // paddingTop pushes content below the status bar.
-  // paddingBottom is set equal to paddingTop so "StylePick" sits in the exact
-  // vertical centre of the content band, with equal air above and below.
   topBar: {
     height: TOP_BAR_HEIGHT,
     backgroundColor: C.ink,
     flexDirection: 'row',
-    alignItems: 'center',        // vertically centres all three children together
+    alignItems: 'center',
     paddingHorizontal: 20,
-    paddingTop: STATUS_BAR_HEIGHT + 8,   // status bar + 8 px breathing room
-    paddingBottom: 8,                    // equal 8 px below — keeps brand centred
+    paddingTop: STATUS_BAR_HEIGHT + 8,
+    paddingBottom: 8,
   },
 
   backCircle: {
@@ -66,7 +69,7 @@ export const styles = StyleSheet.create({
   topBarBrand: {
     flex: 1,
     alignItems: 'center',
-    justifyContent: 'center',   // centres "StylePick" inside its flex column
+    justifyContent: 'center',
   },
   topBarName: {
     fontSize: 20,
@@ -114,14 +117,14 @@ export const styles = StyleSheet.create({
     color: C.textMuted,
     letterSpacing: 0.1,
     lineHeight: 18,
-    marginBottom: 4,   // tightened — pulls fields closer to the subtitle
+    marginBottom: 4,
   },
 
   // ─── Fields ─────────────────────────────────────────────────────────────────
   fieldsWrapper: {
     flex: 1,
     justifyContent: 'center',
-    paddingVertical: 6,   // was 16 — reduced so fields sit tighter in the form
+    paddingVertical: 6,
   },
 
   fieldGroup: {
@@ -203,7 +206,7 @@ export const styles = StyleSheet.create({
   },
 
   termsRow: {
-    marginBottom: 10,   // was 16 — tightened gap between terms and button
+    marginBottom: 10,
   },
   termsText: {
     fontSize: 11,
