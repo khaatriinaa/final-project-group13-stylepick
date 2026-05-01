@@ -48,8 +48,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               .single();
 
             if (!error && profile) {
-              // Sync Supabase profile into local state if no local user is set yet
-              setUser((prevUser) => prevUser ?? (profile as unknown as User));
+              setUser({
+                ...(profile as unknown as User),
+                email: session.user.email ?? profile.email ?? '', // ← guaranteed from Supabase Auth
+              });
             }
           }
 
@@ -66,7 +68,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               .single();
 
             if (!error && profile) {
-              setUser(profile as unknown as User);
+              setUser({
+                ...(profile as unknown as User),
+                email: session.user.email ?? profile.email ?? '', // ← guaranteed from Supabase Auth
+              });
             }
           }
         } catch (supabaseError) {
@@ -83,26 +88,32 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // ─────────────────────────────────────────────────────────────
 
   const refreshUser = async () => {
-    const u = await getCurrentUser();
-    setUser(u);
-
-    // ─── SUPABASE: Also refresh from Supabase profiles table ─────
     try {
-      const { data: session } = await supabase.auth.getSession();
-      if (session?.session?.user?.id) {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const sessionUser = sessionData?.session?.user;
+
+      if (sessionUser?.id) {
         const { data: profile, error } = await supabase
           .from('profiles')
           .select('*')
-          .eq('id', session.session.user.id)
+          .eq('id', sessionUser.id)
           .single();
+
         if (!error && profile) {
-          setUser(profile as unknown as User);
+          setUser({
+            ...(profile as unknown as User),
+            email: sessionUser.email ?? profile.email ?? '', // ← guaranteed from Supabase Auth
+          });
+          return;
         }
       }
     } catch (supabaseError) {
       console.warn('Supabase refreshUser error (local refresh succeeded):', supabaseError);
     }
-    // ─────────────────────────────────────────────────────────────
+
+    // Fallback to local
+    const u = await getCurrentUser();
+    setUser(u);
   };
 
   const logout = async () => {

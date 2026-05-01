@@ -14,7 +14,7 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { BuyerHomeScreenProps, BuyerStackParamList } from '../../../props/props';
 import { Product } from '../../../types';
 import { getProducts } from '../../../services/productService';
-import { getBestsellerProductIds } from '../../../services/orderService'; // ✅ ADDED
+import { getBestsellerProductIds } from '../../../services/orderService';
 import { useCart } from '../../../context/CartContext';
 import { useAuth } from '../../../context/AuthContext';
 import { useFavorites } from '../../../context/FavoritesContext';
@@ -356,8 +356,12 @@ function ProductCard({ item, onNavigate, onHeartPress, onAddToCart, isWishlisted
         </View>
       </Pressable>
 
+      {/* ✅ Heart button — uses TouchableOpacity with highest zIndex */}
       <TouchableOpacity
-        onPress={() => onHeartPress(item)}
+        onPress={() => {
+          console.log('[ProductCard] heart button pressed:', item.name); // ✅ DEBUG
+          onHeartPress(item);
+        }}
         activeOpacity={0.7}
         hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
         style={{
@@ -429,7 +433,7 @@ export default function BuyerHomeScreen({ navigation }: BuyerHomeScreenProps) {
   const [refreshing, setRefreshing]         = useState(false);
   const [searchFocused, setSearchFocused]   = useState(false);
   const [lastOpenAt, setLastOpenAt]         = useState<number | null>(null);
-  const [bestsellerIds, setBestsellerIds]   = useState<string[]>([]); // ✅ ADDED
+  const [bestsellerIds, setBestsellerIds]   = useState<string[]>([]);
 
   const searchInputRef = useRef<TextInput>(null);
   const listRef        = useRef<FlatList<Product>>(null);
@@ -474,7 +478,6 @@ export default function BuyerHomeScreen({ navigation }: BuyerHomeScreenProps) {
   useFocusEffect(
     useCallback(() => {
       fetchProducts();
-      // ✅ ADDED - fetch bestseller product ids
       getBestsellerProductIds().then((results) => {
         setBestsellerIds(results.map((r) => r.productId));
       });
@@ -484,7 +487,6 @@ export default function BuyerHomeScreen({ navigation }: BuyerHomeScreenProps) {
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);
     await fetchProducts();
-    // ✅ ADDED - refresh bestsellers too
     getBestsellerProductIds().then((results) => {
       setBestsellerIds(results.map((r) => r.productId));
     });
@@ -492,13 +494,13 @@ export default function BuyerHomeScreen({ navigation }: BuyerHomeScreenProps) {
   }, [fetchProducts]);
 
   const handleHeartPress = useCallback((p: Product) => {
+    console.log('[HomeScreen] heart pressed:', p.name); // ✅ DEBUG
     if (favoriteIds.has(p.id)) {
       removeFavorite(p.id);
     } else {
       addFavorite(p);
-      stackNav.navigate('Favorites');
     }
-  }, [favoriteIds, addFavorite, removeFavorite, stackNav]);
+  }, [favoriteIds, addFavorite, removeFavorite]);
 
   const handleAddToCart = useCallback((item: Product) => {
     if (item.stock <= 0) {
@@ -527,7 +529,7 @@ export default function BuyerHomeScreen({ navigation }: BuyerHomeScreenProps) {
         p.name.toLowerCase().includes(searchQuery.toLowerCase());
       const matchSub =
         activeSubTab === 'New In'      ? isNewProduct(p, lastOpenAt) :
-        activeSubTab === 'Bestsellers' ? bestsellerIds.includes(p.id) : // ✅ ADDED
+        activeSubTab === 'Bestsellers' ? bestsellerIds.includes(p.id) :
         true;
       return matchCat && matchSearch && matchSub;
     }),

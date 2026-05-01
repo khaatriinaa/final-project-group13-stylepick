@@ -21,11 +21,7 @@ export const getFavorites = async (buyerId: string): Promise<Product[]> => {
     .eq('buyer_id', buyerId)
     .order('created_at', { ascending: false });
 
-  if (error) {
-    console.warn('[favoritesService] getFavorites error:', error.message);
-    return [];
-  }
-
+  if (error) throw new Error(`[favoritesService] getFavorites: ${error.message}`);
   return (data as FavoriteRow[]).map((row) => row.product);
 };
 
@@ -47,9 +43,7 @@ export const addFavoriteToSupabase = async (
     { onConflict: 'buyer_id,product_id' },
   );
 
-  if (error) {
-    console.warn('[favoritesService] addFavorite error:', error.message);
-  }
+  if (error) throw new Error(`[favoritesService] addFavorite: ${error.message}`);
 };
 
 // ─── Remove a favorite ────────────────────────────────────────────────────────
@@ -63,9 +57,7 @@ export const removeFavoriteFromSupabase = async (
     .eq('buyer_id', buyerId)
     .eq('product_id', productId);
 
-  if (error) {
-    console.warn('[favoritesService] removeFavorite error:', error.message);
-  }
+  if (error) throw new Error(`[favoritesService] removeFavorite: ${error.message}`);
 };
 
 // ─── Clear all favorites for a buyer ─────────────────────────────────────────
@@ -75,7 +67,5 @@ export const clearFavoritesFromSupabase = async (buyerId: string): Promise<void>
     .delete()
     .eq('buyer_id', buyerId);
 
-  if (error) {
-    console.warn('[favoritesService] clearFavorites error:', error.message);
-  }
+  if (error) throw new Error(`[favoritesService] clearFavorites: ${error.message}`);
 };

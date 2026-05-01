@@ -43,41 +43,45 @@ export function FavoritesProvider({ children }: { children: ReactNode }) {
   const [favorites, setFavorites] = useState<Product[]>([]);
   const [loaded, setLoaded]       = useState(false);
 
-  // ── Load favorites: Supabase first, fallback to AsyncStorage ─────────────
+  // ── Load favorites: AsyncStorage first, then merge with Supabase ──────────
   useEffect(() => {
     const load = async () => {
       setLoaded(false);
 
-      if (user?.id) {
-        // Logged-in buyer → load from Supabase
-        try {
-          const remote = await getFavorites(user.id);
-          if (remote.length > 0) {
-            setFavorites(remote);
-            // Sync Supabase data down to local cache
-            await AsyncStorage.setItem(
-              FAVORITES_STORAGE_KEY,
-              JSON.stringify(remote),
-            );
-            setLoaded(true);
-            return;
-          }
-        } catch (e) {
-          console.warn('[FavoritesContext] Supabase load failed, using local:', e);
-        }
-      }
+      console.log('[FavoritesContext] user.id:', user?.id);       // ✅ DEBUG
+      console.log('[FavoritesContext] user.email:', user?.email); // ✅ DEBUG
 
-      // Fallback to AsyncStorage (offline / not logged in)
+      let merged: Product[] = [];
+
+      // 1. Load from AsyncStorage first (instant, offline-safe)
       try {
         const json = await AsyncStorage.getItem(FAVORITES_STORAGE_KEY);
         if (json) {
           const parsed = JSON.parse(json);
-          if (Array.isArray(parsed)) setFavorites(parsed);
+          if (Array.isArray(parsed)) merged = parsed;
         }
       } catch (e) {
         console.warn('[FavoritesContext] AsyncStorage load failed:', e);
       }
 
+      // 2. Try Supabase and merge (Supabase is source of truth if available)
+      if (user?.id) {
+        try {
+          const remote = await getFavorites(user.id);
+          console.log('[FavoritesContext] remote favorites:', remote.length); // ✅ DEBUG
+          if (remote.length > 0) {
+            // Supabase wins — use it and sync down to local cache
+            merged = remote;
+            await AsyncStorage.setItem(FAVORITES_STORAGE_KEY, JSON.stringify(remote));
+          }
+          // If remote is empty but local has items, keep local
+          // (Supabase insert may have failed previously)
+        } catch (e) {
+          console.warn('[FavoritesContext] Supabase load failed, using local:', e);
+        }
+      }
+
+      setFavorites(merged);
       setLoaded(true);
     };
 
@@ -95,19 +99,27 @@ export function FavoritesProvider({ children }: { children: ReactNode }) {
 
   // ── Add ───────────────────────────────────────────────────────────────────
   const addFavorite = useCallback((product: Product) => {
+    console.log('[FavoritesContext] addFavorite called:', product.name); // ✅ DEBUG
+    console.log('[FavoritesContext] user.id:', user?.id);                // ✅ DEBUG
+    console.log('[FavoritesContext] user.email:', user?.email);          // ✅ DEBUG
+
     setFavorites((prev) => {
       if (prev.some((p) => p.id === product.id)) return prev;
       return [product, ...prev];
     });
 
     // Sync to Supabase in background
-    if (user?.id && user?.email) {
+    if (user?.id) {
       addFavoriteToSupabase(
         user.id,
-        user.email,
+        user.email ?? '',   // fallback to empty string — only buyer_id matters for RLS
         user.name ?? null,
         product,
-      ).catch(console.warn);
+      )
+        .then(() => console.log('[FavoritesContext] ✅ Supabase sync OK:', product.name))
+        .catch((e) => console.error('[FavoritesContext] ❌ Supabase sync FAILED:', e));
+    } else {
+      console.warn('[FavoritesContext] Skipping Supabase sync — no user.id'); // ✅ DEBUG
     }
   }, [user]);
 
