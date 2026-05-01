@@ -33,7 +33,9 @@ import BuyerProfileScreen from '../screens/buyer/Profile/BuyerProfileScreen';
 import CheckoutScreen from '../screens/buyer/Checkout/CheckoutScreen';
 import BuyerNotificationsScreen from '../screens/buyer/Notifications/BuyerNotificationsScreen';
 import EditProfileScreen from '../screens/buyer/EditProfile/EditProfileScreen';
-import FavoritesScreen from '../screens/buyer/Favorites/FavoritesScreen'; // 👈 added
+import FavoritesScreen from '../screens/buyer/Favorites/FavoritesScreen';
+import BuyerChangePasswordScreen from '../screens/buyer/Profile/BuyerChangePasswordScreen';
+import BuyerHelpSupportScreen from '../screens/buyer/Profile/BuyerHelpSupportScreen';
 
 // Seller
 import SellerDashboardScreen from '../screens/seller/Dashboard/SellerDashboardScreen';
@@ -43,6 +45,8 @@ import SellerOrdersScreen from '../screens/seller/Orders/SellerOrdersScreen';
 import SellerOrderDetailScreen from '../screens/seller/Orders/SellerOrderDetailScreen';
 import SellerProfileScreen from '../screens/seller/Profile/SellerProfileScreen';
 import SellerNotificationsScreen from '../screens/seller/Notifications/SellerNotificationsScreen';
+import SellerChangePasswordScreen from '../screens/seller/Profile/SellerChangePasswordScreen'; 
+import SellerHelpSupportScreen from '../screens/seller/Profile/SellerHelpSupportScreen';
 
 const RootStack = createNativeStackNavigator<RootStackParamList>();
 const AuthStack = createNativeStackNavigator<AuthStackParamList>();
@@ -112,6 +116,8 @@ function BuyerNavigator() {
       <BuyerStack.Screen name="BuyerNotifications" component={BuyerNotificationsScreen} />
       <BuyerStack.Screen name="EditProfile" component={EditProfileScreen} />
       <BuyerStack.Screen name="Favorites" component={FavoritesScreen} /> 
+      <BuyerStack.Screen name="BuyerChangePassword" component={BuyerChangePasswordScreen} />
+      <BuyerStack.Screen name="BuyerHelpSupport" component={BuyerHelpSupportScreen} />
     </BuyerStack.Navigator>
   );
 }
@@ -198,6 +204,8 @@ function SellerNavigator() {
       <SellerStack.Screen name="SellerNotifications" component={SellerNotificationsScreen} />
       <SellerStack.Screen name="SellerOrderDetail" component={SellerOrderDetailScreen} />
       <SellerStack.Screen name="SellerEditProfile" component={SellerEditProfileScreen} />
+      <SellerStack.Screen name="SellerChangePassword" component={SellerChangePasswordScreen} options={{ headerShown: false }} />
+      <SellerStack.Screen name="SellerHelpSupport"    component={SellerHelpSupportScreen}    options={{ headerShown: false }} />
     </SellerStack.Navigator>
   );
 }

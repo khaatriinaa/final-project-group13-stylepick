@@ -67,20 +67,36 @@ export const styles = StyleSheet.create({
   },
   imagePlaceholderIcon: { fontSize: 36, color: '#D1D5DB' },
 
-  // Heart remove button — must have elevation > card elevation so Android
-  // places it on top for both rendering and touch hit-testing.
+  // Heart remove button — BLACK background with white SVG heart, matching the
+  // favorited state from BuyerHomeScreen. elevation > card so Android routes
+  // touches to it correctly.
   heartBtn: {
     position: 'absolute', top: 8, right: 8,
-    width: 32, height: 32, borderRadius: 16,
-    backgroundColor: 'rgba(255,255,255,0.95)',
+    width: 34, height: 34, borderRadius: 17,
+    // Black background — matches the "favorited" heart on the Home screen
+    backgroundColor: '#0F0E17',
     alignItems: 'center', justifyContent: 'center',
-    // FIX: zIndex + elevation both set and higher than card (elevation:2)
     zIndex: 20,
     elevation: 20,
-    shadowColor: '#000', shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.12, shadowRadius: 3,
+    shadowColor: '#000', shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.35, shadowRadius: 4,
   },
   heartIcon: { fontSize: 16 },
+
+  // Sold-out overlay on the product image
+  soldOutOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.45)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  soldOutText: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '800',
+    letterSpacing: 0.5,
+    textTransform: 'uppercase',
+  },
 
   // Info
   info: { padding: 10, paddingBottom: 6 },

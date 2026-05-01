@@ -83,20 +83,17 @@ function SearchIcon({ size = 14, color = '#B8B4C0' }: { size?: number; color?: s
 }
 
 function HeartIcon({
-  size = 14,
-  filled = false,
+  size = 16,
+  favorited = false,
 }: {
   size?: number;
-  filled?: boolean;
+  favorited?: boolean;
 }) {
-  const FILLED_COLOR   = '#0F0E17';
-  const UNFILLED_COLOR = '#9B95A5';
-
   return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill={filled ? FILLED_COLOR : 'none'}>
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill={favorited ? '#000000' : 'none'}>
       <Path
         d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"
-        stroke={filled ? FILLED_COLOR : UNFILLED_COLOR}
+        stroke={favorited ? '#000000' : '#9B95A5'}
         strokeWidth={1.8}
         strokeLinecap="round"
         strokeLinejoin="round"
@@ -270,13 +267,12 @@ function SwipeableBanner({ products, onShopNow, onProductPress }: SwipeableBanne
 interface ProductCardProps {
   item: Product;
   onNavigate: (id: string) => void;
-  onToggleWishlist: (item: Product) => void;
+  onHeartPress: (item: Product) => void;
   onAddToCart: (item: Product) => void;
   isWishlisted: boolean;
 }
 
-function ProductCard({ item, onNavigate, onToggleWishlist, onAddToCart, isWishlisted }: ProductCardProps) {
-  // ── FIX: use item.stock directly — the parent keeps allProducts in sync
+function ProductCard({ item, onNavigate, onHeartPress, onAddToCart, isWishlisted }: ProductCardProps) {
   const isSoldOut  = item.stock <= 0;
   const isLowStock = item.stock > 0 && item.stock <= 5;
   const showSale   = isOnSale(item) && !isSoldOut;
@@ -345,10 +341,14 @@ function ProductCard({ item, onNavigate, onToggleWishlist, onAddToCart, isWishli
         </View>
       </Pressable>
 
-      {/* ── Wishlist / Heart button ────────────────────────────────────────── */}
+      {/* ── Heart / Wishlist button ────────────────────────────────────────── */}
+      {/*
+        • Not favorited → white pill + outline grey heart  → tap adds to favorites
+        • Favorited     → white pill + solid BLACK heart   → tap removes from favorites
+      */}
       <TouchableOpacity
-        onPress={() => onToggleWishlist(item)}
-        activeOpacity={0.75}
+        onPress={() => onHeartPress(item)}
+        activeOpacity={0.7}
         hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
         style={{
           position: 'absolute',
@@ -359,27 +359,21 @@ function ProductCard({ item, onNavigate, onToggleWishlist, onAddToCart, isWishli
           width: 34,
           height: 34,
           borderRadius: 17,
-          backgroundColor: isWishlisted
-            ? 'rgba(255,255,255,1)'
-            : 'rgba(255,255,255,0.92)',
+          backgroundColor: 'rgba(255,255,255,0.92)',
           alignItems: 'center',
           justifyContent: 'center',
           shadowColor: '#000',
-          shadowOffset: { width: 0, height: 1 },
-          shadowOpacity: isWishlisted ? 0.22 : 0.12,
-          shadowRadius: 3,
-          borderWidth: isWishlisted ? 1.5 : 0,
-          borderColor: isWishlisted ? '#0F0E17' : 'transparent',
+          shadowOffset: { width: 0, height: 2 },
+          shadowOpacity: 0.14,
+          shadowRadius: 4,
         }}
       >
-        <HeartIcon size={15} filled={isWishlisted} />
+        <HeartIcon size={16} favorited={isWishlisted} />
       </TouchableOpacity>
 
       {/* ── Add to cart button ─────────────────────────────────────────────── */}
       <TouchableOpacity
-        onPress={() => {
-          if (!isSoldOut) onAddToCart(item);
-        }}
+        onPress={() => { if (!isSoldOut) onAddToCart(item); }}
         disabled={isSoldOut}
         activeOpacity={0.8}
         hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
@@ -413,7 +407,10 @@ function ProductCard({ item, onNavigate, onToggleWishlist, onAddToCart, isWishli
 export default function BuyerHomeScreen({ navigation }: BuyerHomeScreenProps) {
   const { user } = useAuth();
   const { addToCart, itemCount } = useCart();
-  const { favorites, addFavorite, removeFavorite, isFavorite } = useFavorites();
+
+  // ── FIX: destructure removeFavorite — it was imported but never used ───────
+  const { favorites, addFavorite, removeFavorite } = useFavorites();
+
   const stackNav = useNavigation<NativeStackNavigationProp<BuyerStackParamList>>();
 
   const [allProducts, setAllProducts] = useState<Product[]>([]);
@@ -430,6 +427,8 @@ export default function BuyerHomeScreen({ navigation }: BuyerHomeScreenProps) {
   const gridOffset = useRef<number>(0);
   const cartScale = useRef(new Animated.Value(1)).current;
 
+  // Single source of truth for which products are favorited.
+  // Both the heart icon (isWishlisted prop) and handleHeartPress read from here.
   const favoriteIds = useMemo(
     () => new Set(favorites.map((f) => f.id)),
     [favorites]
@@ -442,10 +441,6 @@ export default function BuyerHomeScreen({ navigation }: BuyerHomeScreenProps) {
     ]).start();
   };
 
-  // ── FIX: Always fetch fresh product data when the screen gains focus.
-  // This ensures stock counts are up-to-date after a checkout or any
-  // other stock-modifying operation, regardless of which screen the user
-  // navigated from.
   const fetchProducts = useCallback(async () => {
     try {
       const fresh = await getProducts();
@@ -460,34 +455,31 @@ export default function BuyerHomeScreen({ navigation }: BuyerHomeScreenProps) {
       fetchProducts();
     }, [fetchProducts])
   );
-  
+
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);
     await fetchProducts();
     setRefreshing(false);
   }, [fetchProducts]);
 
-  const toggleWishlist = useCallback((p: Product) => {
-    if (isFavorite(p.id)) {
+  // ── FIX: proper toggle using favoriteIds (same Set the icon reads from) ────
+  // Was: favorited → navigate to Favorites (never removed anything)
+  // Now: favorited → remove | not favorited → add
+  const handleHeartPress = useCallback((p: Product) => {
+    if (favoriteIds.has(p.id)) {
       removeFavorite(p.id);
     } else {
       addFavorite(p);
     }
-  }, [isFavorite, removeFavorite, addFavorite]);
+  }, [favoriteIds, addFavorite, removeFavorite]);
 
-  // ── FIX: Optimistically update local stock when an item is added to cart
-  // so the card reflects the reduced count immediately — no refetch needed.
   const handleAddToCart = useCallback((item: Product) => {
     if (item.stock <= 0) {
       Alert.alert('Out of Stock', 'This item is currently out of stock.');
       return;
     }
-
     addToCart(item);
     bounce();
-
-    // Optimistically subtract 1 from the local product list so the UI
-    // shows the updated stock count right away.
     setAllProducts((prev) =>
       prev.map((p) =>
         p.id === item.id ? { ...p, stock: Math.max(0, p.stock - 1) } : p
@@ -507,9 +499,9 @@ export default function BuyerHomeScreen({ navigation }: BuyerHomeScreenProps) {
 
   const filtered = sortProducts(
     allProducts.filter((p) => {
-      const matchCat = activeCategory === 'All' || 
+      const matchCat = activeCategory === 'All' ||
         p.category.toLowerCase() === activeCategory.toLowerCase();
-      const matchSearch = !searchQuery.trim() || 
+      const matchSearch = !searchQuery.trim() ||
         p.name.toLowerCase().includes(searchQuery.toLowerCase());
       const matchSub = activeSubTab === 'New In' ? isNewProduct(p) : true;
       return matchCat && matchSearch && matchSub;
@@ -522,10 +514,10 @@ export default function BuyerHomeScreen({ navigation }: BuyerHomeScreenProps) {
       item={item}
       isWishlisted={favoriteIds.has(item.id)}
       onNavigate={(id) => stackNav.navigate('ProductDetail', { productId: id })}
-      onToggleWishlist={toggleWishlist}
+      onHeartPress={handleHeartPress}
       onAddToCart={handleAddToCart}
     />
-  ), [favoriteIds, toggleWishlist, handleAddToCart, stackNav]);
+  ), [favoriteIds, handleHeartPress, handleAddToCart, stackNav]);
 
   const SortModal = () => (
     <Modal visible={sortOpen} transparent animationType="slide" onRequestClose={() => setSortOpen(false)}>

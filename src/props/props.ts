@@ -1,9 +1,7 @@
-// src/props/props.ts
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import { RouteProp, CompositeNavigationProp } from '@react-navigation/native';
 import { Order, CartItem } from '../types';
-
 
 // ─── Stack Param Lists ────────────────────────────────────────────────────────
 
@@ -27,22 +25,26 @@ export type BuyerStackParamList = {
   BuyerNotifications: undefined;
   EditProfile: undefined;
   Favorites: undefined;
+  BuyerChangePassword: undefined;
+  BuyerHelpSupport: undefined;
 };
 
 export type SellerTabParamList = {
-  Dashboard:     undefined;
-  SellerOrders:  undefined;
+  Dashboard: undefined;
+  SellerOrders: undefined;
   AddProductTab: undefined;
-  Products:      undefined;
+  Products: undefined;
   SellerProfile: undefined;
 };
 
 export type SellerStackParamList = {
-  SellerTabs:          undefined;
-  AddProduct:          { productId?: string };
+  SellerTabs: undefined;
+  AddProduct: { productId?: string };
   SellerNotifications: undefined;
-  SellerOrderDetail:   { orderId: string };
-  SellerEditProfile:   undefined; // ✅ added
+  SellerOrderDetail: { orderId: string };
+  SellerEditProfile: undefined;
+  SellerChangePassword: undefined;
+  SellerHelpSupport: undefined;  
 };
 
 export type RootStackParamList = {
@@ -119,6 +121,15 @@ export interface BuyerProfileScreenProps {
   route: RouteProp<BuyerTabParamList, 'Profile'>;
 }
 
+export interface BuyerChangePasswordScreenProps {
+  navigation: NativeStackNavigationProp<BuyerStackParamList, 'BuyerChangePassword'>;
+  route: RouteProp<BuyerStackParamList, 'BuyerChangePassword'>;
+}
+
+export interface BuyerHelpSupportScreenProps {
+  navigation: NativeStackNavigationProp<BuyerStackParamList, 'BuyerHelpSupport'>;
+  route: RouteProp<BuyerStackParamList, 'BuyerHelpSupport'>;
+}
 // ─── Seller Props ─────────────────────────────────────────────────────────────
 
 export interface SellerDashboardScreenProps {
@@ -152,7 +163,6 @@ export interface SellerOrderDetailScreenProps {
   route: RouteProp<SellerStackParamList, 'SellerOrderDetail'>;
 }
 
-// ✅ fixed: CompositeNavigationProp so SellerProfileScreen can navigate to stack screens
 export interface SellerProfileScreenProps {
   navigation: CompositeNavigationProp<
     BottomTabNavigationProp<SellerTabParamList, 'SellerProfile'>,
@@ -166,8 +176,17 @@ export interface SellerNotificationsScreenProps {
   route: RouteProp<SellerStackParamList, 'SellerNotifications'>;
 }
 
-// ✅ added
 export interface SellerEditProfileScreenProps {
   navigation: NativeStackNavigationProp<SellerStackParamList, 'SellerEditProfile'>;
   route: RouteProp<SellerStackParamList, 'SellerEditProfile'>;
+}
+
+export interface SellerChangePasswordScreenProps {
+  navigation: NativeStackNavigationProp<SellerStackParamList, 'SellerChangePassword'>;
+  route: RouteProp<SellerStackParamList, 'SellerChangePassword'>;
+}
+
+export interface SellerHelpSupportScreenProps {
+  navigation: NativeStackNavigationProp<SellerStackParamList, 'SellerHelpSupport'>;
+  route: RouteProp<SellerStackParamList, 'SellerHelpSupport'>;
 }

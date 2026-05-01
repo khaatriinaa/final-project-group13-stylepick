@@ -90,8 +90,8 @@ export default function BuyerProfileScreen({ navigation }: BuyerProfileScreenPro
     if (id === 'edit')     navigation.navigate('EditProfile' as any);
     if (id === 'location') getCurrentLocation();
     if (id === 'notifs')   navigation.navigate('BuyerNotifications' as any);
-    if (id === 'password') Alert.alert('Coming Soon', 'Change password feature coming soon.');
-    if (id === 'help')     Alert.alert('Help & Support', 'Contact us at support@shopgo.ph');
+    if (id === 'password') navigation.navigate('BuyerChangePassword' as any);
+    if (id === 'help')     navigation.navigate('BuyerHelpSupport' as any);
   };
 
   const initial = user?.name?.charAt(0).toUpperCase() ?? 'U';

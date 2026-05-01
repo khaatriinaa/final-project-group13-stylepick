@@ -11,15 +11,14 @@ import { SellerProfileScreenProps } from '../../../props/props';
 import { useAuth } from '../../../context/AuthContext';
 
 const ACCOUNT_MENU = [
-  { id: 'edit',     label: 'Edit Profile'    },
-  { id: 'location', label: 'Store Location'  },
-  { id: 'notifs',   label: 'Notifications'   },
-  { id: 'password', label: 'Change Password' },
+  { id: 'edit',     label: 'Edit Profile'   },
+  { id: 'location', label: 'Store Location' },
+  { id: 'notifs',   label: 'Notifications'  },
 ];
 
 const PREF_MENU = [
-  { id: 'reports', label: 'Sales Reports'  },
-  { id: 'help',    label: 'Help & Support' },
+  { id: 'password', label: 'Change Password' },
+  { id: 'help',     label: 'Help & Support'  },
 ];
 
 export default function SellerProfileScreen({ navigation }: SellerProfileScreenProps) {
@@ -79,14 +78,12 @@ export default function SellerProfileScreen({ navigation }: SellerProfileScreenP
   };
 
   const handleMenuItem = (id: string) => {
-    // ✅ FIX: use navigation.navigate directly — no more (navigation as any)
-    if (id === 'edit')     navigation.navigate('SellerEditProfile');
-    if (id === 'location') getLocation();
-    if (id === 'notifs')   navigation.navigate('SellerNotifications');
-    if (id === 'password') Alert.alert('Coming Soon', 'Change password feature coming soon.');
-    if (id === 'reports')  Alert.alert('Coming Soon', 'Sales reports coming soon.');
-    if (id === 'help')     Alert.alert('Help & Support', 'Contact us at support@shopgo.ph');
-  };
+      if (id === 'edit')     navigation.navigate('SellerEditProfile');
+      if (id === 'location') getLocation();
+      if (id === 'notifs')   navigation.navigate('SellerNotifications');
+      if (id === 'password') (navigation as any).navigate('SellerChangePassword');
+      if (id === 'help')     (navigation as any).navigate('SellerHelpSupport');
+    };
 
   const handleLogout = () => {
     Alert.alert('Sign Out', 'Are you sure you want to sign out?', [
