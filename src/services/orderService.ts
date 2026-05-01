@@ -257,8 +257,6 @@ export const cancelOrder = async (orderId: string, sellerId: string): Promise<vo
   const now = new Date().toISOString();
 
   // ─── Step 1: Fetch live status from Supabase — never trust local storage ──
-  // Local can be stale (e.g. a previous failed cancel wrote 'cancelled' locally
-  // but never actually updated Supabase, causing a false "already cancelled").
   const { data: statusData, error: statusError } = await supabase
     .from('orders')
     .select('status, buyer_id')
@@ -266,7 +264,7 @@ export const cancelOrder = async (orderId: string, sellerId: string): Promise<vo
     .single();
 
   if (statusError || !statusData) {
-    throw new Error('Could not fetch order status...');  // ← this is what's showing
+    throw new Error('Could not fetch order status...');
   }
 
   const currentStatus = statusData.status as OrderStatus;
@@ -284,10 +282,6 @@ export const cancelOrder = async (orderId: string, sellerId: string): Promise<vo
   }
 
   // ─── Step 3: Update Supabase ──────────────────────────────────────────────
-  // NOTE: Do NOT use .select() after .update() here — if RLS restricts the
-  // buyer's read policy, Supabase returns an empty array even on success,
-  // which was causing the false "Order could not be updated" error.
-  // We verify success purely via the absence of updateError.
   const { error: updateError } = await supabase
     .from('orders')
     .update({
@@ -315,7 +309,6 @@ export const cancelOrder = async (orderId: string, sellerId: string): Promise<vo
     );
     await Storage.set(KEYS.ORDERS, newList);
   } catch (localError) {
-    // Non-fatal — Supabase is source of truth
     console.warn('Local storage sync after cancel failed:', localError);
   }
 
@@ -331,5 +324,31 @@ export const cancelOrder = async (orderId: string, sellerId: string): Promise<vo
     await notifyOrderStatusUpdate(orderId, 'cancelled');
   } catch (e) {
     console.warn('[cancelOrder] Push notification failed (non-fatal):', e);
+  }
+};
+
+// ─── READ: Top 4 Bestseller Products ─────────────────────────────────────────
+export const getBestsellerProductIds = async (): Promise<{ productId: string; count: number }[]> => {
+  try {
+    const { data, error } = await supabase
+      .from('orders')
+      .select('items');
+    if (error) throw error;
+
+    const countMap: Record<string, number> = {};
+    for (const row of data ?? []) {
+      for (const item of row.items ?? []) {
+        const id = item.product?.id;
+        if (id) countMap[id] = (countMap[id] ?? 0) + item.quantity;
+      }
+    }
+
+    return Object.entries(countMap)
+      .map(([productId, count]) => ({ productId, count }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 4);
+  } catch (err) {
+    console.warn('getBestsellerProductIds error:', err);
+    return [];
   }
 };

@@ -14,6 +14,7 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { BuyerHomeScreenProps, BuyerStackParamList } from '../../../props/props';
 import { Product } from '../../../types';
 import { getProducts } from '../../../services/productService';
+import { getBestsellerProductIds } from '../../../services/orderService'; // ✅ ADDED
 import { useCart } from '../../../context/CartContext';
 import { useAuth } from '../../../context/AuthContext';
 import { useFavorites } from '../../../context/FavoritesContext';
@@ -139,9 +140,6 @@ function PlusIcon({ size = 18, color = '#fff' }: { size?: number; color?: string
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-// ── isNewProduct now accepts a `since` timestamp instead of a hardcoded
-//    14-day window. A product is "new" only if it was created after the
-//    buyer's previous app open. Passing null means no products are new.
 const isNewProduct = (p: Product, since: number | null): boolean => {
   if (since === null) return false;
   return new Date(p.createdAt).getTime() > since;
@@ -430,17 +428,14 @@ export default function BuyerHomeScreen({ navigation }: BuyerHomeScreenProps) {
   const [sortOpen, setSortOpen]             = useState(false);
   const [refreshing, setRefreshing]         = useState(false);
   const [searchFocused, setSearchFocused]   = useState(false);
-  // ── Timestamp of the buyer's previous app open. Products created after
-  //    this time are tagged "New". Null until AsyncStorage is read.
   const [lastOpenAt, setLastOpenAt]         = useState<number | null>(null);
+  const [bestsellerIds, setBestsellerIds]   = useState<string[]>([]); // ✅ ADDED
 
   const searchInputRef = useRef<TextInput>(null);
   const listRef        = useRef<FlatList<Product>>(null);
   const gridOffset     = useRef<number>(0);
   const cartScale      = useRef(new Animated.Value(1)).current;
 
-  // ── On mount: read previous open timestamp, then write current time.
-  //    This means "new" = created after the LAST open, not the current open.
   useEffect(() => {
     const initLastOpen = async () => {
       try {
@@ -477,12 +472,22 @@ export default function BuyerHomeScreen({ navigation }: BuyerHomeScreenProps) {
   }, []);
 
   useFocusEffect(
-    useCallback(() => { fetchProducts(); }, [fetchProducts]),
+    useCallback(() => {
+      fetchProducts();
+      // ✅ ADDED - fetch bestseller product ids
+      getBestsellerProductIds().then((results) => {
+        setBestsellerIds(results.map((r) => r.productId));
+      });
+    }, [fetchProducts]),
   );
 
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);
     await fetchProducts();
+    // ✅ ADDED - refresh bestsellers too
+    getBestsellerProductIds().then((results) => {
+      setBestsellerIds(results.map((r) => r.productId));
+    });
     setRefreshing(false);
   }, [fetchProducts]);
 
@@ -495,7 +500,6 @@ export default function BuyerHomeScreen({ navigation }: BuyerHomeScreenProps) {
     }
   }, [favoriteIds, addFavorite, removeFavorite, stackNav]);
 
-  // ── Add to cart only — stock does NOT change until checkout ──────────────
   const handleAddToCart = useCallback((item: Product) => {
     if (item.stock <= 0) {
       Alert.alert('Out of Stock', 'This item is currently out of stock.');
@@ -521,7 +525,10 @@ export default function BuyerHomeScreen({ navigation }: BuyerHomeScreenProps) {
         p.category.toLowerCase() === activeCategory.toLowerCase();
       const matchSearch = !searchQuery.trim() ||
         p.name.toLowerCase().includes(searchQuery.toLowerCase());
-      const matchSub    = activeSubTab === 'New In' ? isNewProduct(p, lastOpenAt) : true;
+      const matchSub =
+        activeSubTab === 'New In'      ? isNewProduct(p, lastOpenAt) :
+        activeSubTab === 'Bestsellers' ? bestsellerIds.includes(p.id) : // ✅ ADDED
+        true;
       return matchCat && matchSearch && matchSub;
     }),
     sortKey,
