@@ -116,7 +116,8 @@ export const styles = StyleSheet.create({
   // ─── Body ─────────────────────────────────────────────────────────────────
   body: {
     flex: 1, backgroundColor: C.white,
-    borderTopLeftRadius: 12, borderTopRightRadius: 12, overflow: 'hidden',
+    borderTopLeftRadius: 12, borderTopRightRadius: 12,
+    overflow: Platform.OS === 'ios' ? 'hidden' : 'visible',
   },
 
   // ─── Swipeable Banner ─────────────────────────────────────────────────────

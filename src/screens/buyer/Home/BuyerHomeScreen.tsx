@@ -5,7 +5,7 @@ import {
   View, Text, FlatList, Pressable, RefreshControl,
   TextInput, Image, Animated, Modal, ScrollView,
   NativeSyntheticEvent, NativeScrollEvent, Dimensions,
-  TouchableOpacity, Alert,
+  TouchableOpacity, Alert, Platform,
 } from 'react-native';
 import Svg, { Path, Circle } from 'react-native-svg';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
@@ -90,10 +90,11 @@ function HeartIcon({
   favorited?: boolean;
 }) {
   return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill={favorited ? '#000000' : 'none'}>
+    // ↓ fill and stroke both red when favorited
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill={favorited ? '#EF4444' : 'none'}>
       <Path
         d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"
-        stroke={favorited ? '#000000' : '#9B95A5'}
+        stroke={favorited ? '#EF4444' : '#9B95A5'}
         strokeWidth={1.8}
         strokeLinecap="round"
         strokeLinejoin="round"
@@ -265,10 +266,10 @@ function SwipeableBanner({ products, onShopNow, onProductPress }: SwipeableBanne
 // ─── Product Card ─────────────────────────────────────────────────────────────
 
 interface ProductCardProps {
-  item: Product;
-  onNavigate: (id: string) => void;
+  item:         Product;
+  onNavigate:   (id: string) => void;
   onHeartPress: (item: Product) => void;
-  onAddToCart: (item: Product) => void;
+  onAddToCart:  (item: Product) => void;
   isWishlisted: boolean;
 }
 
@@ -280,15 +281,27 @@ function ProductCard({ item, onNavigate, onHeartPress, onAddToCart, isWishlisted
   const discount   = getDiscountPercent(item);
 
   return (
-    <View style={styles.productCard}>
+    // ↓ overflow:'visible' so absolutely-positioned buttons are never clipped
+    <View style={[styles.productCard, { overflow: 'visible' }]}>
+
+      {/* ── Product image + info (navigates to detail) ─────────────────────
+          - No android_ripple: on Android it registers a native touch handler
+            that intercepts ALL sibling touches regardless of zIndex/elevation
+          - opacity feedback works identically on iOS and Android            */}
       <Pressable
         onPress={() => onNavigate(item.id)}
-        style={{ flex: 1, borderRadius: 10 }}
-        android_ripple={{ color: 'rgba(0,0,0,0.04)', borderless: false }}
+        style={({ pressed }) => [
+          { flex: 1, borderRadius: 10, opacity: pressed ? 0.9 : 1 },
+        ]}
       >
+        {/* ↓ overflow:'visible' on Android so heart/cart buttons sit above  */}
         <View style={[
           styles.productImageWrap,
-          { borderTopLeftRadius: 10, borderTopRightRadius: 10, overflow: 'hidden' },
+          {
+            borderTopLeftRadius:  10,
+            borderTopRightRadius: 10,
+            overflow: Platform.OS === 'ios' ? 'hidden' : 'visible',
+          },
         ]}>
           {item.images?.[0] ? (
             <Image
@@ -301,16 +314,19 @@ function ProductCard({ item, onNavigate, onHeartPress, onAddToCart, isWishlisted
               <Text style={styles.productImageIcon}>👗</Text>
             </View>
           )}
+
           {isSoldOut && (
             <View style={styles.soldOutOverlay}>
               <Text style={styles.soldOutText}>Sold Out</Text>
             </View>
           )}
+
           {showSale && discount > 0 && (
             <View style={styles.discountTagBadge}>
               <Text style={styles.discountTagText}>-{discount}%</Text>
             </View>
           )}
+
           {showNew && (
             <View style={styles.tagBadge}>
               <Text style={styles.tagBadgeText}>New</Text>
@@ -341,59 +357,56 @@ function ProductCard({ item, onNavigate, onHeartPress, onAddToCart, isWishlisted
         </View>
       </Pressable>
 
-      {/* ── Heart / Wishlist button ────────────────────────────────────────── */}
-      {/*
-        • Not favorited → white pill + outline grey heart  → tap adds to favorites
-        • Favorited     → white pill + solid BLACK heart   → tap removes from favorites
-      */}
+      {/* ── Heart button — rendered AFTER Pressable so it sits on top ──────
+          zIndex + elevation both set high for iOS and Android respectively  */}
       <TouchableOpacity
         onPress={() => onHeartPress(item)}
         activeOpacity={0.7}
-        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+        hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
         style={{
-          position: 'absolute',
-          top: 8,
-          right: 8,
-          zIndex: 20,
-          elevation: 20,
-          width: 34,
-          height: 34,
-          borderRadius: 17,
+          position:        'absolute',
+          top:             8,
+          right:           8,
+          zIndex:          50,
+          elevation:       50,
+          width:           34,
+          height:          34,
+          borderRadius:    17,
           backgroundColor: 'rgba(255,255,255,0.92)',
-          alignItems: 'center',
-          justifyContent: 'center',
-          shadowColor: '#000',
-          shadowOffset: { width: 0, height: 2 },
-          shadowOpacity: 0.14,
-          shadowRadius: 4,
+          alignItems:      'center',
+          justifyContent:  'center',
+          shadowColor:     '#000',
+          shadowOffset:    { width: 0, height: 2 },
+          shadowOpacity:   0.14,
+          shadowRadius:    4,
         }}
       >
         <HeartIcon size={16} favorited={isWishlisted} />
       </TouchableOpacity>
 
-      {/* ── Add to cart button ─────────────────────────────────────────────── */}
+      {/* ── Add-to-cart button ───────────────────────────────────────────── */}
       <TouchableOpacity
         onPress={() => { if (!isSoldOut) onAddToCart(item); }}
         disabled={isSoldOut}
         activeOpacity={0.8}
-        hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
         style={{
-          position: 'absolute',
-          bottom: 10,
-          right: 10,
-          zIndex: 20,
-          elevation: 20,
-          width: 30,
-          height: 30,
-          borderRadius: 8,
+          position:        'absolute',
+          bottom:          10,
+          right:           10,
+          zIndex:          50,
+          elevation:       50,
+          width:           30,
+          height:          30,
+          borderRadius:    8,
           backgroundColor: isSoldOut ? '#D1D5DB' : '#2D2B55',
-          alignItems: 'center',
-          justifyContent: 'center',
-          opacity: isSoldOut ? 0.5 : 1,
-          shadowColor: '#2D2B55',
-          shadowOffset: { width: 0, height: 3 },
-          shadowOpacity: isSoldOut ? 0 : 0.28,
-          shadowRadius: 5,
+          alignItems:      'center',
+          justifyContent:  'center',
+          opacity:         isSoldOut ? 0.5 : 1,
+          shadowColor:     '#2D2B55',
+          shadowOffset:    { width: 0, height: 3 },
+          shadowOpacity:   isSoldOut ? 0 : 0.28,
+          shadowRadius:    5,
         }}
       >
         <PlusIcon size={16} color="#fff" />
@@ -407,37 +420,33 @@ function ProductCard({ item, onNavigate, onHeartPress, onAddToCart, isWishlisted
 export default function BuyerHomeScreen({ navigation }: BuyerHomeScreenProps) {
   const { user } = useAuth();
   const { addToCart, itemCount } = useCart();
-
-  // ── FIX: destructure removeFavorite — it was imported but never used ───────
   const { favorites, addFavorite, removeFavorite } = useFavorites();
 
   const stackNav = useNavigation<NativeStackNavigationProp<BuyerStackParamList>>();
 
-  const [allProducts, setAllProducts] = useState<Product[]>([]);
-  const [searchQuery, setSearchQuery] = useState('');
+  const [allProducts, setAllProducts]       = useState<Product[]>([]);
+  const [searchQuery, setSearchQuery]       = useState('');
   const [activeCategory, setActiveCategory] = useState('All');
-  const [activeSubTab, setActiveSubTab] = useState<SubTab>('For You');
-  const [sortKey, setSortKey] = useState<SortKey>('relevance');
-  const [sortOpen, setSortOpen] = useState(false);
-  const [refreshing, setRefreshing] = useState(false);
-  const [searchFocused, setSearchFocused] = useState(false);
+  const [activeSubTab, setActiveSubTab]     = useState<SubTab>('For You');
+  const [sortKey, setSortKey]               = useState<SortKey>('relevance');
+  const [sortOpen, setSortOpen]             = useState(false);
+  const [refreshing, setRefreshing]         = useState(false);
+  const [searchFocused, setSearchFocused]   = useState(false);
 
   const searchInputRef = useRef<TextInput>(null);
-  const listRef = useRef<FlatList<Product>>(null);
-  const gridOffset = useRef<number>(0);
-  const cartScale = useRef(new Animated.Value(1)).current;
+  const listRef        = useRef<FlatList<Product>>(null);
+  const gridOffset     = useRef<number>(0);
+  const cartScale      = useRef(new Animated.Value(1)).current;
 
-  // Single source of truth for which products are favorited.
-  // Both the heart icon (isWishlisted prop) and handleHeartPress read from here.
   const favoriteIds = useMemo(
     () => new Set(favorites.map((f) => f.id)),
-    [favorites]
+    [favorites],
   );
 
   const bounce = () => {
     Animated.sequence([
       Animated.timing(cartScale, { toValue: 1.35, duration: 110, useNativeDriver: true }),
-      Animated.spring(cartScale, { toValue: 1, useNativeDriver: true }),
+      Animated.spring(cartScale,  { toValue: 1,    useNativeDriver: true }),
     ]).start();
   };
 
@@ -451,9 +460,7 @@ export default function BuyerHomeScreen({ navigation }: BuyerHomeScreenProps) {
   }, []);
 
   useFocusEffect(
-    useCallback(() => {
-      fetchProducts();
-    }, [fetchProducts])
+    useCallback(() => { fetchProducts(); }, [fetchProducts]),
   );
 
   const handleRefresh = useCallback(async () => {
@@ -462,16 +469,15 @@ export default function BuyerHomeScreen({ navigation }: BuyerHomeScreenProps) {
     setRefreshing(false);
   }, [fetchProducts]);
 
-  // ── FIX: proper toggle using favoriteIds (same Set the icon reads from) ────
-  // Was: favorited → navigate to Favorites (never removed anything)
-  // Now: favorited → remove | not favorited → add
+  // ── Toggle favorite + navigate to Favorites screen on add ────────────────
   const handleHeartPress = useCallback((p: Product) => {
     if (favoriteIds.has(p.id)) {
       removeFavorite(p.id);
     } else {
       addFavorite(p);
+      stackNav.navigate('Favorites');
     }
-  }, [favoriteIds, addFavorite, removeFavorite]);
+  }, [favoriteIds, addFavorite, removeFavorite, stackNav]);
 
   const handleAddToCart = useCallback((item: Product) => {
     if (item.stock <= 0) {
@@ -482,8 +488,8 @@ export default function BuyerHomeScreen({ navigation }: BuyerHomeScreenProps) {
     bounce();
     setAllProducts((prev) =>
       prev.map((p) =>
-        p.id === item.id ? { ...p, stock: Math.max(0, p.stock - 1) } : p
-      )
+        p.id === item.id ? { ...p, stock: Math.max(0, p.stock - 1) } : p,
+      ),
     );
   }, [addToCart]);
 
@@ -499,14 +505,14 @@ export default function BuyerHomeScreen({ navigation }: BuyerHomeScreenProps) {
 
   const filtered = sortProducts(
     allProducts.filter((p) => {
-      const matchCat = activeCategory === 'All' ||
+      const matchCat    = activeCategory === 'All' ||
         p.category.toLowerCase() === activeCategory.toLowerCase();
       const matchSearch = !searchQuery.trim() ||
         p.name.toLowerCase().includes(searchQuery.toLowerCase());
-      const matchSub = activeSubTab === 'New In' ? isNewProduct(p) : true;
+      const matchSub    = activeSubTab === 'New In' ? isNewProduct(p) : true;
       return matchCat && matchSearch && matchSub;
     }),
-    sortKey
+    sortKey,
   );
 
   const renderProduct = useCallback(({ item }: { item: Product }) => (
