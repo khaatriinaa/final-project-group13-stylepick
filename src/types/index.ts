@@ -101,5 +101,6 @@ export interface Notification {
   message:   string;
   isRead:    boolean;
   orderId?:  string;
+  type?:     string;   // ← add this
   createdAt: string;
 }

@@ -2,18 +2,22 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import {
   View, Text, FlatList, Pressable,
-  RefreshControl, Alert, Platform, AppState, AppStateStatus,
+  RefreshControl, Alert, AppState, AppStateStatus,
 } from 'react-native';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useAuth } from '../../../context/AuthContext';
 import {
-  getNotifications, markAsRead, markAllAsRead, deleteNotification,
+  getNotifications,
+  markAsRead,
+  markAllAsRead,
+  deleteNotification,
+  subscribeToNotifications,
 } from '../../../services/notificationService';
 import { Notification } from '../../../types';
 import { styles } from './SellerNotificationsScreen.styles';
 
-const POLL_INTERVAL_MS = 5_000; // refresh every 5 s while screen is focused
+const POLL_INTERVAL_MS = 5_000;
 
 function timeAgo(d: string): string {
   const diff = Date.now() - new Date(d).getTime();
@@ -26,11 +30,11 @@ function timeAgo(d: string): string {
 }
 
 const TYPE_META: Record<string, { icon: string; accent: string; bg: string }> = {
-  order:    { icon: '🛒', accent: '#F97316', bg: '#FFF5EE' },
-  payment:  { icon: '💳', accent: '#22C55E', bg: '#F0FDF4' },
-  alert:    { icon: '⚠️', accent: '#EAB308', bg: '#FEFCE8' },
-  system:   { icon: '⚙️', accent: '#6B7280', bg: '#F9FAFB' },
-  default:  { icon: '🔔', accent: '#5B8DEF', bg: '#EAF0FF' },
+  order:   { icon: '🛒', accent: '#F97316', bg: '#FFF5EE' },
+  payment: { icon: '💳', accent: '#22C55E', bg: '#F0FDF4' },
+  alert:   { icon: '⚠️', accent: '#EAB308', bg: '#FEFCE8' },
+  system:  { icon: '⚙️', accent: '#6B7280', bg: '#F9FAFB' },
+  default: { icon: '🔔', accent: '#5B8DEF', bg: '#EAF0FF' },
 };
 
 const getMeta = (type?: string) =>
@@ -43,18 +47,15 @@ export default function SellerNotificationsScreen() {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [refreshing, setRefreshing]       = useState(false);
 
-  // ── Refs that survive re-renders without causing them ──────────────────
   const intervalRef    = useRef<ReturnType<typeof setInterval> | null>(null);
   const isFocusedRef   = useRef(false);
   const appStateRef    = useRef<AppStateStatus>(AppState.currentState);
+  const unsubscribeRef = useRef<(() => void) | null>(null);
 
-  // ── Core fetch (silent — no loading spinner) ───────────────────────────
+  // ── Core fetch ─────────────────────────────────────────────────────────
   const fetchNotifs = useCallback(async () => {
     if (!user?.id) return;
     const fresh = await getNotifications(user.id);
-
-    // Only call setNotifications if something actually changed,
-    // so we avoid unnecessary re-renders on every poll tick.
     setNotifications((prev) => {
       const prevJson = JSON.stringify(prev);
       const nextJson = JSON.stringify(fresh);
@@ -62,9 +63,17 @@ export default function SellerNotificationsScreen() {
     });
   }, [user?.id]);
 
+  // ── Real-time: prepend new notification instantly ──────────────────────
+  const handleNewNotification = useCallback((notif: Notification) => {
+    setNotifications((prev) => {
+      if (prev.some((n) => n.id === notif.id)) return prev;
+      return [notif, ...prev];
+    });
+  }, []);
+
   // ── Start / stop polling ───────────────────────────────────────────────
   const startPolling = useCallback(() => {
-    if (intervalRef.current) return; // already running
+    if (intervalRef.current) return;
     intervalRef.current = setInterval(fetchNotifs, POLL_INTERVAL_MS);
   }, [fetchNotifs]);
 
@@ -75,38 +84,53 @@ export default function SellerNotificationsScreen() {
     }
   }, []);
 
-  // ── Pause polling when the app goes to background ─────────────────────
+  // ── Subscribe / unsubscribe real-time ──────────────────────────────────
+  const startRealtime = useCallback(() => {
+    if (!user?.id || unsubscribeRef.current) return;
+    unsubscribeRef.current = subscribeToNotifications(
+      user.id,
+      handleNewNotification,
+    );
+  }, [user?.id, handleNewNotification]);
+
+  const stopRealtime = useCallback(() => {
+    if (unsubscribeRef.current) {
+      unsubscribeRef.current();
+      unsubscribeRef.current = null;
+    }
+  }, []);
+
+  // ── AppState: pause when backgrounded ─────────────────────────────────
   useEffect(() => {
     const sub = AppState.addEventListener('change', (next: AppStateStatus) => {
-      const wasActive = appStateRef.current === 'active';
-      const isActive  = next === 'active';
       appStateRef.current = next;
-
-      if (isActive && isFocusedRef.current) {
-        fetchNotifs();   // immediate refresh on foreground
+      if (next === 'active' && isFocusedRef.current) {
+        fetchNotifs();
         startPolling();
-      } else if (!isActive) {
+        startRealtime();
+      } else if (next !== 'active') {
         stopPolling();
+        stopRealtime();
       }
     });
-
     return () => sub.remove();
-  }, [fetchNotifs, startPolling, stopPolling]);
+  }, [fetchNotifs, startPolling, stopPolling, startRealtime, stopRealtime]);
 
-  // ── Tie polling lifecycle to screen focus ─────────────────────────────
+  // ── Screen focus ───────────────────────────────────────────────────────
   useFocusEffect(
     useCallback(() => {
       isFocusedRef.current = true;
-      fetchNotifs();                                 // immediate fetch on focus
+      fetchNotifs();
       if (AppState.currentState === 'active') {
         startPolling();
+        startRealtime();
       }
-
       return () => {
         isFocusedRef.current = false;
-        stopPolling();                               // stop when leaving screen
+        stopPolling();
+        stopRealtime();
       };
-    }, [fetchNotifs, startPolling, stopPolling]),
+    }, [fetchNotifs, startPolling, stopPolling, startRealtime, stopRealtime]),
   );
 
   // ── Pull-to-refresh ────────────────────────────────────────────────────
@@ -160,7 +184,6 @@ export default function SellerNotificationsScreen() {
         onPress={() => handlePress(item)}
         onLongPress={() => handleDelete(item.id)}
       >
-        {/* Icon pill */}
         <View style={[styles.iconWrap, { backgroundColor: meta.bg }]}>
           <Text style={styles.iconText}>{meta.icon}</Text>
           {!item.isRead && (
@@ -168,7 +191,6 @@ export default function SellerNotificationsScreen() {
           )}
         </View>
 
-        {/* Body */}
         <View style={styles.itemBody}>
           <Text
             style={[styles.itemMessage, item.isRead && styles.itemMessageRead]}
@@ -186,7 +208,6 @@ export default function SellerNotificationsScreen() {
           </View>
         </View>
 
-        {/* Delete button */}
         <Pressable
           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
           onPress={() => handleDelete(item.id)}
@@ -198,10 +219,8 @@ export default function SellerNotificationsScreen() {
     );
   };
 
-  // ── UI ─────────────────────────────────────────────────────────────────
   return (
     <View style={styles.container}>
-      {/* Header */}
       <View style={styles.header}>
         <Pressable
           style={({ pressed }) => [styles.backBtn, pressed && { opacity: 0.6 }]}
@@ -234,7 +253,6 @@ export default function SellerNotificationsScreen() {
         )}
       </View>
 
-      {/* Summary bar */}
       {notifications.length > 0 && (
         <View style={styles.summaryBar}>
           <Text style={styles.summaryText}>

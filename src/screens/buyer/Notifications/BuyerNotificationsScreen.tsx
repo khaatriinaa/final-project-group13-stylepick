@@ -12,11 +12,12 @@ import {
   markAsRead,
   markAllAsRead,
   deleteNotification,
+  subscribeToNotifications,
 } from '../../../services/notificationService';
 import { Notification } from '../../../types';
 import { styles } from './BuyerNotificationsScreen.styles';
 
-const POLL_INTERVAL_MS = 5_000; // refresh every 5 s while screen is focused
+const POLL_INTERVAL_MS = 5_000; // polling as backup to real-time
 
 function timeAgo(dateStr: string): string {
   const diff = Date.now() - new Date(dateStr).getTime();
@@ -44,19 +45,17 @@ export default function BuyerNotificationsScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<any>>();
 
   const [notifications, setNotifications] = useState<Notification[]>([]);
-  const [refreshing, setRefreshing] = useState(false);
+  const [refreshing, setRefreshing]       = useState(false);
 
-  // ── Refs that survive re-renders without causing them ──────────────────
-  const intervalRef  = useRef<ReturnType<typeof setInterval> | null>(null);
-  const isFocusedRef = useRef(false);
-  const appStateRef  = useRef<AppStateStatus>(AppState.currentState);
+  const intervalRef    = useRef<ReturnType<typeof setInterval> | null>(null);
+  const isFocusedRef   = useRef(false);
+  const appStateRef    = useRef<AppStateStatus>(AppState.currentState);
+  const unsubscribeRef = useRef<(() => void) | null>(null);
 
-  // ── Core fetch (silent — no loading spinner) ───────────────────────────
+  // ── Core fetch ─────────────────────────────────────────────────────────
   const fetchNotifs = useCallback(async () => {
     if (!user?.id) return;
     const fresh = await getNotifications(user.id);
-
-    // Only update state when data actually changed — avoids flicker on idle ticks
     setNotifications((prev) => {
       const prevJson = JSON.stringify(prev);
       const nextJson = JSON.stringify(fresh);
@@ -64,9 +63,18 @@ export default function BuyerNotificationsScreen() {
     });
   }, [user?.id]);
 
-  // ── Start / stop polling ───────────────────────────────────────────────
+  // ── Real-time: prepend new notification instantly ──────────────────────
+  const handleNewNotification = useCallback((notif: Notification) => {
+    setNotifications((prev) => {
+      // Avoid duplicates
+      if (prev.some((n) => n.id === notif.id)) return prev;
+      return [notif, ...prev];
+    });
+  }, []);
+
+  // ── Start / stop polling (backup for real-time) ────────────────────────
   const startPolling = useCallback(() => {
-    if (intervalRef.current) return; // already running
+    if (intervalRef.current) return;
     intervalRef.current = setInterval(fetchNotifs, POLL_INTERVAL_MS);
   }, [fetchNotifs]);
 
@@ -77,37 +85,53 @@ export default function BuyerNotificationsScreen() {
     }
   }, []);
 
-  // ── Pause polling when app goes to background ──────────────────────────
+  // ── Subscribe / unsubscribe real-time ──────────────────────────────────
+  const startRealtime = useCallback(() => {
+    if (!user?.id || unsubscribeRef.current) return;
+    unsubscribeRef.current = subscribeToNotifications(
+      user.id,
+      handleNewNotification,
+    );
+  }, [user?.id, handleNewNotification]);
+
+  const stopRealtime = useCallback(() => {
+    if (unsubscribeRef.current) {
+      unsubscribeRef.current();
+      unsubscribeRef.current = null;
+    }
+  }, []);
+
+  // ── AppState: pause when backgrounded ─────────────────────────────────
   useEffect(() => {
     const sub = AppState.addEventListener('change', (next: AppStateStatus) => {
-      const isActive = next === 'active';
       appStateRef.current = next;
-
-      if (isActive && isFocusedRef.current) {
-        fetchNotifs();   // immediate refresh on foreground
+      if (next === 'active' && isFocusedRef.current) {
+        fetchNotifs();
         startPolling();
-      } else if (!isActive) {
+        startRealtime();
+      } else if (next !== 'active') {
         stopPolling();
+        stopRealtime();
       }
     });
-
     return () => sub.remove();
-  }, [fetchNotifs, startPolling, stopPolling]);
+  }, [fetchNotifs, startPolling, stopPolling, startRealtime, stopRealtime]);
 
-  // ── Tie polling lifecycle to screen focus ──────────────────────────────
+  // ── Screen focus: start everything, stop on blur ───────────────────────
   useFocusEffect(
     useCallback(() => {
       isFocusedRef.current = true;
-      fetchNotifs();                                // immediate fetch on focus
+      fetchNotifs();
       if (AppState.currentState === 'active') {
         startPolling();
+        startRealtime();
       }
-
       return () => {
         isFocusedRef.current = false;
-        stopPolling();                              // stop when leaving screen
+        stopPolling();
+        stopRealtime();
       };
-    }, [fetchNotifs, startPolling, stopPolling]),
+    }, [fetchNotifs, startPolling, stopPolling, startRealtime, stopRealtime]),
   );
 
   // ── Pull-to-refresh ────────────────────────────────────────────────────
@@ -162,7 +186,6 @@ export default function BuyerNotificationsScreen() {
         onPress={() => handlePress(item)}
         onLongPress={() => handleDelete(item.id)}
       >
-        {/* Icon pill */}
         <View style={[styles.iconWrap, { backgroundColor: meta.bg }]}>
           <Text style={styles.iconText}>{meta.icon}</Text>
           {!item.isRead && (
@@ -170,7 +193,6 @@ export default function BuyerNotificationsScreen() {
           )}
         </View>
 
-        {/* Body */}
         <View style={styles.itemBody}>
           <Text
             style={[styles.itemMessage, item.isRead && styles.itemMessageRead]}
@@ -188,7 +210,6 @@ export default function BuyerNotificationsScreen() {
           </View>
         </View>
 
-        {/* Delete button */}
         <Pressable
           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
           onPress={() => handleDelete(item.id)}
@@ -200,11 +221,8 @@ export default function BuyerNotificationsScreen() {
     );
   };
 
-  // ── UI ─────────────────────────────────────────────────────────────────
   return (
     <View style={styles.container}>
-
-      {/* Header */}
       <View style={styles.header}>
         <Pressable
           style={({ pressed }) => [styles.backBtn, pressed && { opacity: 0.6 }]}
@@ -237,7 +255,6 @@ export default function BuyerNotificationsScreen() {
         )}
       </View>
 
-      {/* Summary bar */}
       {notifications.length > 0 && (
         <View style={styles.summaryBar}>
           <Text style={styles.summaryText}>
