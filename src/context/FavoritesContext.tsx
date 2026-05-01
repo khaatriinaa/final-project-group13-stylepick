@@ -18,7 +18,8 @@ import {
   clearFavoritesFromSupabase,
 } from '../services/favoritesService';
 
-const FAVORITES_STORAGE_KEY = '@favorites_v2';
+// ✅ FIXED — per-user key so favorites don't bleed across accounts
+const getFavoritesKey = (userId: string) => `@favorites_v2_${userId}`;
 
 interface FavoritesContextValue {
   favorites:      Product[];
@@ -43,45 +44,51 @@ export function FavoritesProvider({ children }: { children: ReactNode }) {
   const [favorites, setFavorites] = useState<Product[]>([]);
   const [loaded, setLoaded]       = useState(false);
 
-  // ── Load favorites: AsyncStorage first, then merge with Supabase ──────────
+  // ── Load favorites: Supabase first, fallback to AsyncStorage ─────────────
   useEffect(() => {
     const load = async () => {
       setLoaded(false);
 
+      // ✅ FIXED — clear favorites when user changes so previous user's
+      //            favorites don't flash on screen before new ones load
+      setFavorites([]);
+
       console.log('[FavoritesContext] user.id:', user?.id);       // ✅ DEBUG
       console.log('[FavoritesContext] user.email:', user?.email); // ✅ DEBUG
 
-      let merged: Product[] = [];
-
-      // 1. Load from AsyncStorage first (instant, offline-safe)
-      try {
-        const json = await AsyncStorage.getItem(FAVORITES_STORAGE_KEY);
-        if (json) {
-          const parsed = JSON.parse(json);
-          if (Array.isArray(parsed)) merged = parsed;
-        }
-      } catch (e) {
-        console.warn('[FavoritesContext] AsyncStorage load failed:', e);
-      }
-
-      // 2. Try Supabase and merge (Supabase is source of truth if available)
       if (user?.id) {
+        // Logged-in buyer → load from Supabase
         try {
           const remote = await getFavorites(user.id);
           console.log('[FavoritesContext] remote favorites:', remote.length); // ✅ DEBUG
           if (remote.length > 0) {
-            // Supabase wins — use it and sync down to local cache
-            merged = remote;
-            await AsyncStorage.setItem(FAVORITES_STORAGE_KEY, JSON.stringify(remote));
+            setFavorites(remote);
+            // Sync Supabase data down to local cache using per-user key
+            await AsyncStorage.setItem(
+              getFavoritesKey(user.id), // ✅ FIXED
+              JSON.stringify(remote),
+            );
+            setLoaded(true);
+            return;
           }
-          // If remote is empty but local has items, keep local
-          // (Supabase insert may have failed previously)
         } catch (e) {
           console.warn('[FavoritesContext] Supabase load failed, using local:', e);
         }
       }
 
-      setFavorites(merged);
+      // Fallback to AsyncStorage (offline / not logged in)
+      try {
+        // ✅ FIXED — use per-user key or a guest key
+        const storageKey = user?.id ? getFavoritesKey(user.id) : '@favorites_v2_guest';
+        const json = await AsyncStorage.getItem(storageKey);
+        if (json) {
+          const parsed = JSON.parse(json);
+          if (Array.isArray(parsed)) setFavorites(parsed);
+        }
+      } catch (e) {
+        console.warn('[FavoritesContext] AsyncStorage load failed:', e);
+      }
+
       setLoaded(true);
     };
 
@@ -91,11 +98,13 @@ export function FavoritesProvider({ children }: { children: ReactNode }) {
   // ── Persist to AsyncStorage whenever favorites change ────────────────────
   useEffect(() => {
     if (!loaded) return;
+    // ✅ FIXED — use per-user key
+    const storageKey = user?.id ? getFavoritesKey(user.id) : '@favorites_v2_guest';
     AsyncStorage.setItem(
-      FAVORITES_STORAGE_KEY,
+      storageKey,
       JSON.stringify(favorites),
     ).catch(console.warn);
-  }, [favorites, loaded]);
+  }, [favorites, loaded, user?.id]);
 
   // ── Add ───────────────────────────────────────────────────────────────────
   const addFavorite = useCallback((product: Product) => {
@@ -109,17 +118,15 @@ export function FavoritesProvider({ children }: { children: ReactNode }) {
     });
 
     // Sync to Supabase in background
-    if (user?.id) {
+    if (user?.id && user?.email) {
       addFavoriteToSupabase(
         user.id,
-        user.email ?? '',   // fallback to empty string — only buyer_id matters for RLS
+        user.email,
         user.name ?? null,
         product,
-      )
-        .then(() => console.log('[FavoritesContext] ✅ Supabase sync OK:', product.name))
-        .catch((e) => console.error('[FavoritesContext] ❌ Supabase sync FAILED:', e));
+      ).catch(console.warn);
     } else {
-      console.warn('[FavoritesContext] Skipping Supabase sync — no user.id'); // ✅ DEBUG
+      console.warn('[FavoritesContext] Skipping Supabase sync — no user.id or user.email'); // ✅ DEBUG
     }
   }, [user]);
 
