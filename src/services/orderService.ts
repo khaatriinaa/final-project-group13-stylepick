@@ -3,7 +3,6 @@
 import { Storage } from '../storage/storage';
 import { KEYS } from '../storage/keys';
 import { Order, OrderStatus, CartItem } from '../types';
-import { decrementStock } from './productService';
 import { createNotification } from './notificationService';
 import {
   notifyOrderPlaced,
@@ -115,6 +114,8 @@ export type PlaceOrderPayload = {
   buyerPhone?:     string;
 };
 
+// src/services/orderService.ts
+
 export const placeOrder = async (payload: PlaceOrderPayload): Promise<Order> => {
   const all  = await Storage.getList<Order>(KEYS.ORDERS);
   const now  = new Date().toISOString();
@@ -142,9 +143,7 @@ export const placeOrder = async (payload: PlaceOrderPayload): Promise<Order> => 
   // Save to local storage first as immediate fallback
   await Storage.set(KEYS.ORDERS, [...all, newOrder]);
 
-  for (const item of payload.items) {
-    await decrementStock(item.product.id, item.quantity);
-  }
+  // ─── REMOVED: decrementStock loop was here — CheckoutScreen owns this ───
 
   await createNotification({
     userId:  payload.sellerId,

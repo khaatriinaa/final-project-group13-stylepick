@@ -1,10 +1,11 @@
 // src/screens/buyer/Home/BuyerHomeScreen.tsx
+
 import React, { useState, useCallback, useRef, useMemo } from 'react';
 import {
   View, Text, FlatList, Pressable, RefreshControl,
   TextInput, Image, Animated, Modal, ScrollView,
   NativeSyntheticEvent, NativeScrollEvent, Dimensions,
-  TouchableOpacity, Platform,
+  TouchableOpacity, Alert,
 } from 'react-native';
 import Svg, { Path, Circle } from 'react-native-svg';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
@@ -36,14 +37,10 @@ const SUB_TABS: SubTab[] = ['For You', 'New In', 'Bestsellers'];
 
 const BANNER_SLIDES = [
   { id: 'slide-0', headline: 'HIGHLY\nREVIEWED\nPICKS', cta: 'Shop Now',   accent: '#FFFFFF', thumbOffset: 0 },
-  { id: 'slide-1', headline: 'HIGH\nSALES\nPICKS',      cta: 'See Trends', accent: '#F5E642', thumbOffset: 1 },
-  { id: 'slide-2', headline: 'BEST\nVALUE\nTODAY',      cta: 'Grab Deals', accent: '#42F5A2', thumbOffset: 2 },
+  { id: 'slide-1', headline: 'HIGH\nSALES\nPICKS',     cta: 'See Trends', accent: '#F5E642', thumbOffset: 1 },
+  { id: 'slide-2', headline: 'BEST\nVALUE\nTODAY',     cta: 'Grab Deals', accent: '#42F5A2', thumbOffset: 2 },
 ];
 
-// ─── Category Circles ─────────────────────────────────────────────────────────
-// These values must match exactly what sellers set as `product.category`
-// (i.e. the FASHION_CATEGORIES from AddProductScreen):
-// 'Dress' | 'Tops' | 'Bottoms' | 'Footwear' | 'Outerwear' | 'Accessories' | 'Bags' | 'Activewear'
 const CAT_CIRCLES = [
   { label: 'Dress',       emoji: '👗' },
   { label: 'Tops',        emoji: '👕' },
@@ -60,10 +57,8 @@ const CAT_CIRCLES = [
 function BellIcon({ size = 20, color = '#fff' }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"
-        stroke={color} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" />
-      <Path d="M13.73 21a2 2 0 0 1-3.46 0"
-        stroke={color} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" />
+      <Path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" stroke={color} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" />
+      <Path d="M13.73 21a2 2 0 0 1-3.46 0" stroke={color} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" />
     </Svg>
   );
 }
@@ -71,11 +66,9 @@ function BellIcon({ size = 20, color = '#fff' }: { size?: number; color?: string
 function CartIcon({ size = 20, color = '#fff' }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"
-        stroke={color} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" />
+      <Path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z" stroke={color} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" />
       <Path d="M3 6h18" stroke={color} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" />
-      <Path d="M16 10a4 4 0 0 1-8 0"
-        stroke={color} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" />
+      <Path d="M16 10a4 4 0 0 1-8 0" stroke={color} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" />
     </Svg>
   );
 }
@@ -89,13 +82,24 @@ function SearchIcon({ size = 14, color = '#B8B4C0' }: { size?: number; color?: s
   );
 }
 
-function HeartIcon({ size = 14, filled = false, color = '#9B95A5' }: { size?: number; filled?: boolean; color?: string }) {
+function HeartIcon({
+  size = 14,
+  filled = false,
+}: {
+  size?: number;
+  filled?: boolean;
+}) {
+  const FILLED_COLOR   = '#0F0E17';
+  const UNFILLED_COLOR = '#9B95A5';
+
   return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill={filled ? color : 'none'}>
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill={filled ? FILLED_COLOR : 'none'}>
       <Path
         d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"
-        stroke={color} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round"
-        fill={filled ? color : 'none'}
+        stroke={filled ? FILLED_COLOR : UNFILLED_COLOR}
+        strokeWidth={1.8}
+        strokeLinecap="round"
+        strokeLinejoin="round"
       />
     </Svg>
   );
@@ -272,7 +276,8 @@ interface ProductCardProps {
 }
 
 function ProductCard({ item, onNavigate, onToggleWishlist, onAddToCart, isWishlisted }: ProductCardProps) {
-  const isSoldOut  = item.stock === 0;
+  // ── FIX: use item.stock directly — the parent keeps allProducts in sync
+  const isSoldOut  = item.stock <= 0;
   const isLowStock = item.stock > 0 && item.stock <= 5;
   const showSale   = isOnSale(item) && !isSoldOut;
   const showNew    = isNewProduct(item) && !isSoldOut && !showSale;
@@ -280,8 +285,6 @@ function ProductCard({ item, onNavigate, onToggleWishlist, onAddToCart, isWishli
 
   return (
     <View style={styles.productCard}>
-
-      {/* Nav Pressable — NO overflow:hidden so it never clips siblings */}
       <Pressable
         onPress={() => onNavigate(item.id)}
         style={{ flex: 1, borderRadius: 10 }}
@@ -342,7 +345,7 @@ function ProductCard({ item, onNavigate, onToggleWishlist, onAddToCart, isWishli
         </View>
       </Pressable>
 
-      {/* Heart button — absolute sibling AFTER nav Pressable */}
+      {/* ── Wishlist / Heart button ────────────────────────────────────────── */}
       <TouchableOpacity
         onPress={() => onToggleWishlist(item)}
         activeOpacity={0.75}
@@ -356,25 +359,27 @@ function ProductCard({ item, onNavigate, onToggleWishlist, onAddToCart, isWishli
           width: 34,
           height: 34,
           borderRadius: 17,
-          backgroundColor: 'rgba(255,255,255,0.95)',
+          backgroundColor: isWishlisted
+            ? 'rgba(255,255,255,1)'
+            : 'rgba(255,255,255,0.92)',
           alignItems: 'center',
           justifyContent: 'center',
           shadowColor: '#000',
           shadowOffset: { width: 0, height: 1 },
-          shadowOpacity: 0.12,
+          shadowOpacity: isWishlisted ? 0.22 : 0.12,
           shadowRadius: 3,
+          borderWidth: isWishlisted ? 1.5 : 0,
+          borderColor: isWishlisted ? '#0F0E17' : 'transparent',
         }}
       >
-        <HeartIcon
-          size={15}
-          filled={isWishlisted}
-          color={isWishlisted ? '#E63946' : '#9B95A5'}
-        />
+        <HeartIcon size={15} filled={isWishlisted} />
       </TouchableOpacity>
 
-      {/* Add to cart button */}
+      {/* ── Add to cart button ─────────────────────────────────────────────── */}
       <TouchableOpacity
-        onPress={() => !isSoldOut && onAddToCart(item)}
+        onPress={() => {
+          if (!isSoldOut) onAddToCart(item);
+        }}
         disabled={isSoldOut}
         activeOpacity={0.8}
         hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
@@ -393,13 +398,12 @@ function ProductCard({ item, onNavigate, onToggleWishlist, onAddToCart, isWishli
           opacity: isSoldOut ? 0.5 : 1,
           shadowColor: '#2D2B55',
           shadowOffset: { width: 0, height: 3 },
-          shadowOpacity: 0.28,
+          shadowOpacity: isSoldOut ? 0 : 0.28,
           shadowRadius: 5,
         }}
       >
         <PlusIcon size={16} color="#fff" />
       </TouchableOpacity>
-
     </View>
   );
 }
@@ -407,29 +411,28 @@ function ProductCard({ item, onNavigate, onToggleWishlist, onAddToCart, isWishli
 // ─── Main Screen ──────────────────────────────────────────────────────────────
 
 export default function BuyerHomeScreen({ navigation }: BuyerHomeScreenProps) {
-  const { user }                                           = useAuth();
-  const { addToCart, itemCount }                           = useCart();
+  const { user } = useAuth();
+  const { addToCart, itemCount } = useCart();
   const { favorites, addFavorite, removeFavorite, isFavorite } = useFavorites();
   const stackNav = useNavigation<NativeStackNavigationProp<BuyerStackParamList>>();
 
-  const [allProducts, setAllProducts]       = useState<Product[]>([]);
-  const [searchQuery, setSearchQuery]       = useState('');
+  const [allProducts, setAllProducts] = useState<Product[]>([]);
+  const [searchQuery, setSearchQuery] = useState('');
   const [activeCategory, setActiveCategory] = useState('All');
-  const [activeSubTab, setActiveSubTab]     = useState<SubTab>('For You');
-  const [sortKey, setSortKey]               = useState<SortKey>('relevance');
-  const [sortOpen, setSortOpen]             = useState(false);
-  const [refreshing, setRefreshing]         = useState(false);
-  const [searchFocused, setSearchFocused]   = useState(false);
+  const [activeSubTab, setActiveSubTab] = useState<SubTab>('For You');
+  const [sortKey, setSortKey] = useState<SortKey>('relevance');
+  const [sortOpen, setSortOpen] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+  const [searchFocused, setSearchFocused] = useState(false);
 
   const searchInputRef = useRef<TextInput>(null);
-  const listRef        = useRef<FlatList<Product>>(null);
-  const gridOffset     = useRef<number>(0);
-  const cartScale      = useRef(new Animated.Value(1)).current;
+  const listRef = useRef<FlatList<Product>>(null);
+  const gridOffset = useRef<number>(0);
+  const cartScale = useRef(new Animated.Value(1)).current;
 
-  // Derive a stable Set of favorited IDs from the favorites array
   const favoriteIds = useMemo(
     () => new Set(favorites.map((f) => f.id)),
-    [favorites],
+    [favorites]
   );
 
   const bounce = () => {
@@ -439,23 +442,57 @@ export default function BuyerHomeScreen({ navigation }: BuyerHomeScreenProps) {
     ]).start();
   };
 
+  // ── FIX: Always fetch fresh product data when the screen gains focus.
+  // This ensures stock counts are up-to-date after a checkout or any
+  // other stock-modifying operation, regardless of which screen the user
+  // navigated from.
   const fetchProducts = useCallback(async () => {
-    try { setAllProducts(await getProducts()); } catch {}
+    try {
+      const fresh = await getProducts();
+      setAllProducts(fresh);
+    } catch (err) {
+      console.warn('Failed to fetch products:', err);
+    }
   }, []);
 
-  useFocusEffect(useCallback(() => { fetchProducts(); }, [fetchProducts]));
-
+  useFocusEffect(
+    useCallback(() => {
+      fetchProducts();
+    }, [fetchProducts])
+  );
+  
   const handleRefresh = useCallback(async () => {
-    setRefreshing(true); await fetchProducts(); setRefreshing(false);
+    setRefreshing(true);
+    await fetchProducts();
+    setRefreshing(false);
   }, [fetchProducts]);
 
   const toggleWishlist = useCallback((p: Product) => {
-    isFavorite(p.id) ? removeFavorite(p.id) : addFavorite(p);
+    if (isFavorite(p.id)) {
+      removeFavorite(p.id);
+    } else {
+      addFavorite(p);
+    }
   }, [isFavorite, removeFavorite, addFavorite]);
 
+  // ── FIX: Optimistically update local stock when an item is added to cart
+  // so the card reflects the reduced count immediately — no refetch needed.
   const handleAddToCart = useCallback((item: Product) => {
+    if (item.stock <= 0) {
+      Alert.alert('Out of Stock', 'This item is currently out of stock.');
+      return;
+    }
+
     addToCart(item);
     bounce();
+
+    // Optimistically subtract 1 from the local product list so the UI
+    // shows the updated stock count right away.
+    setAllProducts((prev) =>
+      prev.map((p) =>
+        p.id === item.id ? { ...p, stock: Math.max(0, p.stock - 1) } : p
+      )
+    );
   }, [addToCart]);
 
   const scrollToGrid = useCallback(() => {
@@ -470,15 +507,14 @@ export default function BuyerHomeScreen({ navigation }: BuyerHomeScreenProps) {
 
   const filtered = sortProducts(
     allProducts.filter((p) => {
-      // Case-insensitive match against product.category
-      const matchCat    = activeCategory === 'All'
-        || p.category.toLowerCase() === activeCategory.toLowerCase();
-      const matchSearch = !searchQuery.trim()
-        || p.name.toLowerCase().includes(searchQuery.toLowerCase());
-      const matchSub    = activeSubTab === 'New In' ? isNewProduct(p) : true;
+      const matchCat = activeCategory === 'All' || 
+        p.category.toLowerCase() === activeCategory.toLowerCase();
+      const matchSearch = !searchQuery.trim() || 
+        p.name.toLowerCase().includes(searchQuery.toLowerCase());
+      const matchSub = activeSubTab === 'New In' ? isNewProduct(p) : true;
       return matchCat && matchSearch && matchSub;
     }),
-    sortKey,
+    sortKey
   );
 
   const renderProduct = useCallback(({ item }: { item: Product }) => (
@@ -490,8 +526,6 @@ export default function BuyerHomeScreen({ navigation }: BuyerHomeScreenProps) {
       onAddToCart={handleAddToCart}
     />
   ), [favoriteIds, toggleWishlist, handleAddToCart, stackNav]);
-
-  // ─── Sort modal ───────────────────────────────────────────────────────────
 
   const SortModal = () => (
     <Modal visible={sortOpen} transparent animationType="slide" onRequestClose={() => setSortOpen(false)}>
@@ -520,8 +554,6 @@ export default function BuyerHomeScreen({ navigation }: BuyerHomeScreenProps) {
     </Modal>
   );
 
-  // ─── List header ──────────────────────────────────────────────────────────
-
   const ListHeader = () => (
     <>
       <SwipeableBanner
@@ -530,14 +562,12 @@ export default function BuyerHomeScreen({ navigation }: BuyerHomeScreenProps) {
         onProductPress={(id) => stackNav.navigate('ProductDetail', { productId: id })}
       />
 
-      {/* Category circles — now maps directly to FASHION_CATEGORIES */}
       <View style={styles.catCirclesWrap}>
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={styles.catCirclesContent}
         >
-          {/* "All" pill first */}
           <Pressable
             style={styles.catCircleItem}
             onPress={() => setActiveCategory('All')}
@@ -582,10 +612,6 @@ export default function BuyerHomeScreen({ navigation }: BuyerHomeScreenProps) {
         <Text style={styles.sectionTitle}>
           Super<Text style={styles.sectionTitleAccent}> Deals</Text>
         </Text>
-        <Pressable
-          style={styles.seeAllBtn}
-          onPress={() => stackNav.navigate('ProductList' as any)}
-        />
       </View>
 
       <View style={styles.statusRow}>
@@ -603,8 +629,6 @@ export default function BuyerHomeScreen({ navigation }: BuyerHomeScreenProps) {
       </View>
     </>
   );
-
-  // ─── Render ───────────────────────────────────────────────────────────────
 
   return (
     <View style={styles.container}>

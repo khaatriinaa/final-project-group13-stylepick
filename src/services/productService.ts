@@ -1,6 +1,5 @@
 // src/services/productService.ts
 
-
 import { Storage } from '../storage/storage';
 import { KEYS } from '../storage/keys';
 import { Product, ProductCondition, ShippingMethod } from '../types';
@@ -21,7 +20,7 @@ const mapRow = (row: any): Product => ({
   price:           Number(row.price),
   comparePrice:    row.compare_price  != null ? Number(row.compare_price)  : null,
   costPrice:       row.cost_price     != null ? Number(row.cost_price)     : null,
-  stock:           row.stock,
+  stock:           Number(row.stock),
   weight:          row.weight_kg      != null ? Number(row.weight_kg)      : null,
   images:          row.images         ?? [],
   colors:          row.colors         ?? [],
@@ -67,27 +66,18 @@ export const uploadProductImage = async (
   localUri: string,
   sellerId: string,
 ): Promise<string> => {
-  // If already a remote URL skip upload
   if (localUri.startsWith('http://') || localUri.startsWith('https://')) {
     return localUri;
   }
 
   try {
-    // ─── Step 1: Build unique file name ──────────────────────────
     const fileName = `${Date.now()}_${Math.random().toString(36).slice(2)}.jpg`;
     const filePath = `products/${sellerId}/${fileName}`;
 
-    console.log('Fetching local image URI:', localUri); // ✅ DEBUG
-
-    // ─── Step 2: Fetch local file as ArrayBuffer ──────────────────
     const response = await fetch(localUri);
     if (!response.ok) throw new Error(`fetch failed: ${response.status}`);
     const arrayBuffer = await response.arrayBuffer();
 
-    console.log('ArrayBuffer size:', arrayBuffer.byteLength); // ✅ DEBUG
-    console.log('Uploading to Supabase Storage path:', filePath); // ✅ DEBUG
-
-    // ─── Step 3: Upload ArrayBuffer directly to Supabase ─────────
     const { error: uploadError } = await supabase.storage
       .from('product-images')
       .upload(filePath, arrayBuffer, {
@@ -95,26 +85,18 @@ export const uploadProductImage = async (
         upsert:      false,
       });
 
-    if (uploadError) {
-      console.warn('Supabase Storage upload error:', JSON.stringify(uploadError)); // ✅ DEBUG
-      throw uploadError;
-    }
+    if (uploadError) throw uploadError;
 
-    // ─── Step 4: Return public URL ────────────────────────────────
     const { data } = supabase.storage
       .from('product-images')
       .getPublicUrl(filePath);
 
-    console.log('Upload success! Public URL:', data.publicUrl); // ✅ DEBUG
     return data.publicUrl;
-
   } catch (err) {
-    console.warn('uploadProductImage FAILED:', JSON.stringify(err)); // ✅ DEBUG
-    return localUri; // fallback — keeps app from crashing
+    console.warn('uploadProductImage FAILED:', JSON.stringify(err));
+    return localUri;
   }
 };
-
-// ─── UPLOAD: Upload all images and return array of public URLs ────────────────
 
 export const uploadProductImages = async (
   uris: string[],
@@ -126,6 +108,18 @@ export const uploadProductImages = async (
   return results;
 };
 
+// ─── Internal: sync a fresh product list into local AsyncStorage ──────────────
+// Call this whenever we get a trusted list from Supabase so the local
+// fallback stays warm and accurate.
+
+const _syncLocalProducts = async (products: Product[]): Promise<void> => {
+  try {
+    await Storage.set(KEYS.PRODUCTS, products);
+  } catch (err) {
+    console.warn('_syncLocalProducts failed:', err);
+  }
+};
+
 // ─── READ: All active products (Buyer Home) ───────────────────────────────────
 
 export const getProducts = async (): Promise<Product[]> => {
@@ -135,8 +129,15 @@ export const getProducts = async (): Promise<Product[]> => {
       .select('*')
       .eq('is_archived', false)
       .order('created_at', { ascending: false });
+
     if (error) throw error;
-    if (data && data.length > 0) return data.map(mapRow);
+
+    // FIX: Trust Supabase even when it returns an empty array — an empty
+    // catalogue is valid. Only fall back to local storage on a hard error.
+    const mapped = (data ?? []).map(mapRow);
+    // Keep local storage warm so future offline reads are accurate.
+    await _syncLocalProducts(mapped);
+    return mapped;
   } catch (err) {
     console.warn('Supabase getProducts error (falling back to local):', err);
   }
@@ -154,8 +155,16 @@ export const getProductById = async (productId: string): Promise<Product | null>
       .select('*')
       .eq('id', productId)
       .single();
+
     if (error) throw error;
-    if (data) return mapRow(data);
+
+    if (data) {
+      const mapped = mapRow(data);
+      // FIX: Update just this product in local storage so the local cache
+      // reflects the latest stock from Supabase (important after checkout).
+      await _syncSingleLocalProduct(mapped);
+      return mapped;
+    }
   } catch (err) {
     console.warn('Supabase getProductById error (falling back to local):', err);
   }
@@ -164,7 +173,22 @@ export const getProductById = async (productId: string): Promise<Product | null>
   return all.find((p) => p.id === productId) ?? null;
 };
 
-// ─── READ: Seller's own products (all, including archived) ───────────────────
+// ─── Internal: upsert a single product into local AsyncStorage ────────────────
+
+const _syncSingleLocalProduct = async (product: Product): Promise<void> => {
+  try {
+    const all = await Storage.getList<Product>(KEYS.PRODUCTS);
+    const exists = all.some((p) => p.id === product.id);
+    const updated = exists
+      ? all.map((p) => (p.id === product.id ? product : p))
+      : [...all, product];
+    await Storage.set(KEYS.PRODUCTS, updated);
+  } catch (err) {
+    console.warn('_syncSingleLocalProduct failed:', err);
+  }
+};
+
+// ─── READ: Seller's own products ─────────────────────────────────────────────
 
 export const getMyProducts = async (sellerId: string): Promise<Product[]> => {
   try {
@@ -188,36 +212,30 @@ export const getMyProducts = async (sellerId: string): Promise<Product[]> => {
 export type CreateProductPayload = Omit<Product, 'id' | 'createdAt' | 'updatedAt' | 'isArchived' | 'isFeatured'>;
 
 export const createProduct = async (payload: CreateProductPayload): Promise<Product> => {
-  // ─── Upload images to Supabase Storage before saving ─────────────
   let uploadedImages = payload.images;
   try {
     uploadedImages = await uploadProductImages(payload.images, payload.sellerId);
-    console.log('All images uploaded:', uploadedImages); // ✅ DEBUG
   } catch (err) {
     console.warn('Image upload failed, using local URIs:', err);
   }
-  // ─────────────────────────────────────────────────────────────────
 
   const newProduct: Product = {
     ...payload,
-    images:     uploadedImages, // ← Supabase public URLs
+    images:     uploadedImages,
     id:         generateId(),
     isArchived: false,
     isFeatured: false,
     createdAt:  new Date().toISOString(),
   };
 
-  // Persist locally first (offline-safe)
   const all = await Storage.getList<Product>(KEYS.PRODUCTS);
   await Storage.set(KEYS.PRODUCTS, [...all, newProduct]);
 
-  // Sync to Supabase
   try {
     const { error } = await supabase
       .from('products')
       .insert({ ...toRow(newProduct), id: newProduct.id, created_at: newProduct.createdAt });
     if (error) throw error;
-    console.log('Product saved to Supabase:', newProduct.id); // ✅ DEBUG
   } catch (err) {
     console.warn('Supabase createProduct error (local save succeeded):', err);
   }
@@ -234,16 +252,13 @@ export const updateProduct = async (
   updates: UpdateProductPayload,
   sellerId?: string,
 ): Promise<Product> => {
-  // ─── Upload any new local images before updating ──────────────────
   if (updates.images && sellerId) {
     try {
       updates.images = await uploadProductImages(updates.images, sellerId);
-      console.log('Updated images uploaded:', updates.images); // ✅ DEBUG
     } catch (err) {
       console.warn('Image upload on update failed, keeping existing images:', err);
     }
   }
-  // ─────────────────────────────────────────────────────────────────
 
   const all = await Storage.getList<Product>(KEYS.PRODUCTS);
   let updated: Product | null = null;
@@ -259,7 +274,6 @@ export const updateProduct = async (
   if (!updated) throw new Error('Product not found.');
   await Storage.set(KEYS.PRODUCTS, newList);
 
-  // Sync to Supabase
   try {
     const { error } = await supabase
       .from('products')
@@ -282,35 +296,107 @@ export const archiveProduct = async (productId: string): Promise<void> => {
 // ─── DECREMENT STOCK after purchase ──────────────────────────────────────────
 
 export const decrementStock = async (productId: string, qty: number): Promise<void> => {
-  // Local update
-  const all = await Storage.getList<Product>(KEYS.PRODUCTS);
-  const newList = all.map((p) =>
-    p.id === productId ? { ...p, stock: Math.max(0, p.stock - qty) } : p,
-  );
-  await Storage.set(KEYS.PRODUCTS, newList);
+  console.log(`[decrementStock] START — productId: ${productId}, qty: ${qty}`);
 
-  // Supabase: prefer RPC to avoid race conditions on concurrent purchases
+  // ── Step 1: Try RPC ───────────────────────────────────────────────────────
   try {
     const { error } = await supabase.rpc('decrement_product_stock', {
       p_id:  productId,
       p_qty: qty,
     });
     if (error) throw error;
+    console.log(`[decrementStock] ✅ RPC succeeded for ${productId}`);
+
+    // FIX: After a successful RPC, fetch the authoritative stock value from
+    // Supabase and write it into local storage. This ensures the Home screen
+    // and ProductDetail screen see the correct count on next focus, even if
+    // they read from the local cache.
+    await _syncStockFromSupabase(productId);
+    return;
+  } catch (rpcErr) {
+    console.warn(`[decrementStock] ⚠️ RPC failed for ${productId}:`, rpcErr);
+  }
+
+  // ── Step 2: Fallback — fetch current stock, then update ──────────────────
+  console.log(`[decrementStock] Trying fallback UPDATE for ${productId}...`);
+  try {
+    const { data: row, error: fetchErr } = await supabase
+      .from('products')
+      .select('stock')
+      .eq('id', productId)
+      .single();
+
+    if (fetchErr) throw fetchErr;
+
+    const currentStock = Number(row?.stock ?? 0);
+    const newStock = Math.max(0, currentStock - qty);
+
+    console.log(`[decrementStock] currentStock=${currentStock}, newStock=${newStock}`);
+
+    const { error: updateErr } = await supabase
+      .from('products')
+      .update({ stock: newStock })
+      .eq('id', productId);
+
+    if (updateErr) throw updateErr;
+
+    console.log(`[decrementStock] ✅ Fallback UPDATE succeeded for ${productId}. New stock: ${newStock}`);
+
+    // FIX: Write the known-good new stock value directly to local storage
+    // instead of re-fetching, since we just computed it.
+    await _setLocalStock(productId, newStock);
+  } catch (fallbackErr) {
+    console.error(`[decrementStock] ❌ ALL strategies failed for ${productId}:`, fallbackErr);
+    // Last resort: apply the decrement locally so the UI isn't completely stale.
+    await _decrementLocalStock(productId, qty);
+  }
+};
+
+// ─── Internal: fetch authoritative stock from Supabase → write to local ──────
+
+const _syncStockFromSupabase = async (productId: string): Promise<void> => {
+  try {
+    const { data, error } = await supabase
+      .from('products')
+      .select('stock')
+      .eq('id', productId)
+      .single();
+
+    if (error) throw error;
+
+    const newStock = Number(data?.stock ?? 0);
+    await _setLocalStock(productId, newStock);
+    console.log(`[decrementStock] ✅ Local storage synced from Supabase for ${productId}: stock=${newStock}`);
   } catch (err) {
-    console.warn('Supabase decrementStock RPC error, trying fallback:', err);
-    try {
-      const { data, error: fetchErr } = await supabase
-        .from('products')
-        .select('stock')
-        .eq('id', productId)
-        .single();
-      if (fetchErr) throw fetchErr;
-      await supabase
-        .from('products')
-        .update({ stock: Math.max(0, (data.stock ?? 0) - qty) })
-        .eq('id', productId);
-    } catch (fallbackErr) {
-      console.warn('Supabase decrementStock fallback also failed:', fallbackErr);
-    }
+    console.warn(`[decrementStock] ⚠️ _syncStockFromSupabase failed for ${productId}:`, err);
+  }
+};
+
+// ─── Internal: set an exact stock value in local AsyncStorage ─────────────────
+
+const _setLocalStock = async (productId: string, stock: number): Promise<void> => {
+  try {
+    const all = await Storage.getList<Product>(KEYS.PRODUCTS);
+    const updated = all.map((p) =>
+      p.id === productId ? { ...p, stock } : p
+    );
+    await Storage.set(KEYS.PRODUCTS, updated);
+  } catch (err) {
+    console.warn(`[decrementStock] ⚠️ _setLocalStock failed for ${productId}:`, err);
+  }
+};
+
+// ─── Internal: update local AsyncStorage stock (decrement path) ───────────────
+
+const _decrementLocalStock = async (productId: string, qty: number): Promise<void> => {
+  try {
+    const all = await Storage.getList<Product>(KEYS.PRODUCTS);
+    const updated = all.map((p) =>
+      p.id === productId ? { ...p, stock: Math.max(0, p.stock - qty) } : p
+    );
+    await Storage.set(KEYS.PRODUCTS, updated);
+    console.log(`[decrementStock] ✅ Local storage decremented for ${productId}`);
+  } catch (localErr) {
+    console.warn(`[decrementStock] ⚠️ Local storage update failed for ${productId}:`, localErr);
   }
 };

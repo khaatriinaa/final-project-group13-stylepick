@@ -61,8 +61,6 @@ export default function BuyerOrdersScreen({ navigation }: BuyerOrdersScreenProps
     }
   }, [user?.id]);
 
-  // Re-fetches every time screen gains focus — picks up cancellations
-  // made in BuyerOrderDetailScreen automatically
   useFocusEffect(useCallback(() => {
     setLoading(true);
     fetchOrders();
@@ -74,15 +72,20 @@ export default function BuyerOrdersScreen({ navigation }: BuyerOrdersScreenProps
     setRefreshing(false);
   }, [fetchOrders]);
 
-  const filtered = activeTab === 'all'
-    ? orders
-    : activeTab === 'confirmed'
-      ? orders.filter((o) => o.status === 'confirmed' || o.status === 'preparing')
-      : orders.filter((o) => o.status === activeTab);
+  // Cancelled and refunded orders are excluded from "All"
+  const isCancelledOrRefunded = (o: Order) =>
+    o.status === 'cancelled' || o.status === 'refunded';
+
+  const filtered =
+    activeTab === 'all'
+      ? orders.filter((o) => !isCancelledOrRefunded(o))
+      : activeTab === 'confirmed'
+        ? orders.filter((o) => o.status === 'confirmed' || o.status === 'preparing')
+        : orders.filter((o) => o.status === activeTab);
 
   // ── Tab count badges ────────────────────────────────────────────────────────
   const getTabCount = (value: OrderStatus | 'all'): number => {
-    if (value === 'all') return orders.length;
+    if (value === 'all')       return orders.filter((o) => !isCancelledOrRefunded(o)).length;
     if (value === 'confirmed') return orders.filter((o) => o.status === 'confirmed' || o.status === 'preparing').length;
     return orders.filter((o) => o.status === value).length;
   };
@@ -92,7 +95,6 @@ export default function BuyerOrdersScreen({ navigation }: BuyerOrdersScreenProps
     const itemCount   = item.items.reduce((sum, ci) => sum + ci.quantity, 0);
     const firstItem   = item.items[0];
 
-    // Guard against Supabase jsonb items that may be denormalized snapshots
     const productImage =
       firstItem?.product?.images?.[0] ??
       (firstItem?.image ? firstItem.image : null);
@@ -155,7 +157,6 @@ export default function BuyerOrdersScreen({ navigation }: BuyerOrdersScreenProps
               {productName}
             </Text>
 
-            {/* Variant chip — guard both field naming conventions */}
             {(firstItem?.selectedColor || firstItem?.selectedSize ||
               firstItem?.color        || firstItem?.size) && (
               <View style={styles.variantChip}>

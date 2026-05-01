@@ -145,7 +145,7 @@ export default function SellerProductsScreen({ navigation }: SellerProductsScree
             handleArchiveToggle(item);
           }}
         >
-          <Text style={styles.actionBtnText}>{item.isArchived ? '↩' : '⊗'}</Text>
+          <Text style={styles.actionBtnText}>{item.isArchived ? '⤴' : '⊗'}</Text>
         </Pressable>
       </View>
     </Pressable>

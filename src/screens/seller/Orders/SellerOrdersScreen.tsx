@@ -137,12 +137,16 @@ export default function SellerOrdersScreen({ navigation }: SellerOrdersScreenPro
   };
 
   // ── Filter + count badge helpers ──────────────────────────────────────────
-  const filtered = activeFilter === 'all'
-    ? orders
-    : orders.filter((o) => o.status === activeFilter);
+  const isCancelledOrRefunded = (o: Order) =>
+    o.status === 'cancelled' || o.status === 'refunded';
+
+  const filtered =
+    activeFilter === 'all'
+      ? orders.filter((o) => !isCancelledOrRefunded(o))
+      : orders.filter((o) => o.status === activeFilter);
 
   const getTabCount = (value: OrderStatus | 'all'): number => {
-    if (value === 'all') return orders.length;
+    if (value === 'all') return orders.filter((o) => !isCancelledOrRefunded(o)).length;
     return orders.filter((o) => o.status === value).length;
   };
 
@@ -151,9 +155,6 @@ export default function SellerOrdersScreen({ navigation }: SellerOrdersScreenPro
     const badge      = STATUS_BADGE_STYLE[item.status] ?? { bg: '#F3F4F6', text: '#6B7280' };
     const nextStatus = NEXT_STATUS[item.status];
     const nextLabel  = NEXT_LABEL[item.status];
-
-    const previewItems = item.items.slice(0, 3);
-    const extraCount   = item.items.length - previewItems.length;
 
     const itemCount  = item.items.reduce((sum, ci) => sum + ci.quantity, 0);
     const firstItem  = item.items[0];
@@ -245,39 +246,39 @@ export default function SellerOrdersScreen({ navigation }: SellerOrdersScreenPro
 
           <View style={styles.footerRight}>
             {item.status === 'pending' && (
-                <Pressable
-                  style={({ pressed }) => [
-                    styles.actionBtnDanger,
-                    pressed && { opacity: 0.75 },
-                  ]}
-                  onPress={(e) => { e.stopPropagation(); handleCancel(item); }}
-                >
-                  <Text style={styles.actionBtnDangerText}>Cancel</Text>
-                </Pressable>
-              )}
-
-              {nextStatus && nextLabel && (
-                <Pressable
-                  style={({ pressed }) => [
-                    styles.actionBtnPrimary,
-                    pressed && { opacity: 0.75 },
-                  ]}
-                  onPress={(e) => { e.stopPropagation(); handleUpdateStatus(item, nextStatus); }}
-                >
-                  <Text style={styles.actionBtnPrimaryText}>{nextLabel}</Text>
-                </Pressable>
-              )}
-
               <Pressable
                 style={({ pressed }) => [
-                  styles.detailsBtn,
-                  pressed && styles.detailsBtnPressed,
-                  isCancelled && styles.detailsBtnCancelled,
+                  styles.actionBtnDanger,
+                  pressed && { opacity: 0.75 },
                 ]}
-                onPress={() => stackNav.navigate('SellerOrderDetail', { orderId: item.id })}
+                onPress={(e) => { e.stopPropagation(); handleCancel(item); }}
               >
-                <Text style={styles.detailsBtnText}>Details</Text>
+                <Text style={styles.actionBtnDangerText}>Cancel</Text>
               </Pressable>
+            )}
+
+            {nextStatus && nextLabel && (
+              <Pressable
+                style={({ pressed }) => [
+                  styles.actionBtnPrimary,
+                  pressed && { opacity: 0.75 },
+                ]}
+                onPress={(e) => { e.stopPropagation(); handleUpdateStatus(item, nextStatus); }}
+              >
+                <Text style={styles.actionBtnPrimaryText}>{nextLabel}</Text>
+              </Pressable>
+            )}
+
+            <Pressable
+              style={({ pressed }) => [
+                styles.detailsBtn,
+                pressed && styles.detailsBtnPressed,
+                isCancelled && styles.detailsBtnCancelled,
+              ]}
+              onPress={() => stackNav.navigate('SellerOrderDetail', { orderId: item.id })}
+            >
+              <Text style={styles.detailsBtnText}>Details</Text>
+            </Pressable>
           </View>
         </View>
       </Pressable>

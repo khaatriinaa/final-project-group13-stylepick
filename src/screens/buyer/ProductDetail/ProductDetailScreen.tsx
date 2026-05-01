@@ -23,22 +23,61 @@ export default function ProductDetailScreen({ navigation, route }: ProductDetail
   const [qty, setQty]                     = useState(1);
   const [added, setAdded]                 = useState(false);
 
+  // ── FIX: useFocusEffect ensures fresh stock is fetched every time this
+  // screen becomes active — including after returning from checkout or
+  // navigating back from another screen that modified stock.
   useFocusEffect(
     useCallback(() => {
-      setLoading(true);
-      getProductById(productId)
-        .then((p) => {
+      let cancelled = false;
+
+      const loadProduct = async () => {
+        setLoading(true);
+        try {
+          const p = await getProductById(productId);
+          if (cancelled) return;
+
           setProduct(p);
-          if (p?.colors?.length) setSelectedColor(p.colors[0]);
-          if (p?.sizes?.length)  setSelectedSize(p.sizes[0]);
-        })
-        .catch((e) => Alert.alert('Error', e.message))
-        .finally(() => setLoading(false));
+
+          // Only reset color/size selections on first load (when product is null),
+          // not on every focus — preserves the user's variant picks.
+          setSelectedColor((prev) => {
+            if (prev !== null) return prev;            // keep existing pick
+            return p?.colors?.length ? p.colors[0] : null;
+          });
+          setSelectedSize((prev) => {
+            if (prev !== null) return prev;
+            return p?.sizes?.length ? p.sizes[0] : null;
+          });
+
+          // Clamp qty in case stock dropped below the currently selected qty
+          // (e.g. someone else bought stock while user was on this screen).
+          if (p) {
+            setQty((prev) => Math.min(prev, Math.max(1, p.stock)));
+          }
+        } catch (e: any) {
+          if (!cancelled) Alert.alert('Error', e.message);
+        } finally {
+          if (!cancelled) setLoading(false);
+        }
+      };
+
+      loadProduct();
+
+      // Cleanup: ignore stale async results if the screen unmounts mid-request
+      return () => { cancelled = true; };
     }, [productId]),
   );
 
+  // ── FIX: Optimistically update local stock when user adds to cart so the
+  // stock count on THIS screen updates immediately without a round-trip.
   const handleAddToCart = () => {
     if (!product) return;
+
+    if (product.stock <= 0) {
+      Alert.alert('Out of Stock', 'This item is currently out of stock.');
+      return;
+    }
+
     if (product.colors?.length && !selectedColor) {
       Alert.alert('Select a Color', 'Please choose a color before adding to cart.');
       return;
@@ -47,9 +86,22 @@ export default function ProductDetailScreen({ navigation, route }: ProductDetail
       Alert.alert('Select a Size', 'Please choose a size before adding to cart.');
       return;
     }
-    for (let i = 0; i < qty; i++) {
+
+    // Guard: don't allow qty to exceed available stock
+    const safeQty = Math.min(qty, product.stock);
+
+    for (let i = 0; i < safeQty; i++) {
       addToCart(product, 1, selectedColor ?? undefined, selectedSize ?? undefined);
     }
+
+    // Optimistically reflect the deduction locally
+    setProduct((prev) =>
+      prev ? { ...prev, stock: Math.max(0, prev.stock - safeQty) } : prev
+    );
+
+    // Clamp qty if the remaining stock is now lower
+    setQty((prev) => Math.min(prev, Math.max(1, product.stock - safeQty)));
+
     setAdded(true);
     setTimeout(() => setAdded(false), 2000);
   };
@@ -106,6 +158,7 @@ export default function ProductDetailScreen({ navigation, route }: ProductDetail
                 styles.stockBadge,
                 { backgroundColor: inStock ? '#F0FDF4' : '#FEF2F2' },
               ]}>
+                {/* ── FIX: Show exact stock count so buyers can see how many remain */}
                 <Text style={[
                   styles.stockText,
                   { color: inStock ? '#166534' : '#991B1B' },
@@ -225,10 +278,13 @@ export default function ProductDetailScreen({ navigation, route }: ProductDetail
                 <Text style={qtyBtnText}>−</Text>
               </Pressable>
               <Text style={qtyValue}>{qty}</Text>
+              {/* ── FIX: cap increment at actual stock so qty never exceeds available */}
               <Pressable
-                style={[qtyBtn, !inStock && { opacity: 0.35 }]}
-                onPress={() => setQty(Math.min(product.stock, qty + 1))}
-                disabled={!inStock}
+                style={[qtyBtn, (!inStock || qty >= product.stock) && { opacity: 0.35 }]}
+                onPress={() => {
+                  if (qty < product.stock) setQty(qty + 1);
+                }}
+                disabled={!inStock || qty >= product.stock}
               >
                 <Text style={qtyBtnText}>+</Text>
               </Pressable>
@@ -304,9 +360,10 @@ export default function ProductDetailScreen({ navigation, route }: ProductDetail
               Alert.alert('Select a Size', 'Please choose a size first.');
               return;
             }
+            const safeQty = Math.min(qty, product.stock);
             const buyNowItem = {
               product,
-              quantity:      qty,
+              quantity:      safeQty,
               selectedColor: selectedColor ?? undefined,
               selectedSize:  selectedSize  ?? undefined,
             };

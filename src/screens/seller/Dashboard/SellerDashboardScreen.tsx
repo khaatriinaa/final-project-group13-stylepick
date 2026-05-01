@@ -7,7 +7,6 @@ import {
   Pressable,
   RefreshControl,
   Image,
-  TouchableWithoutFeedback,
 } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
@@ -215,12 +214,16 @@ export default function SellerDashboardScreen({ navigation }: SellerDashboardScr
     setRefreshing(false);
   }, [fetchData]);
 
+  const closeDropdowns = useCallback(() => {
+    setSalesDropdownOpen(false);
+    setOrderDropdownOpen(false);
+  }, []);
+
   const periodFrom      = getPeriodRange(salesPeriod);
   const periodOrders    = orders.filter((o) => new Date(o.createdAt) >= periodFrom);
   const chartConfig     = getChartConfig(salesPeriod, orders);
   const periodIncome    = chartConfig.revenue.reduce((s, v) => s + v, 0);
   const periodDelivered = periodOrders.filter((o) => o.status === 'delivered').length;
-  const processingCount = orders.filter((o) => o.status === 'preparing').length;
 
   const filteredOrders = (() => {
     const status = STATUS_MAP[orderFilter];
@@ -247,266 +250,113 @@ export default function SellerDashboardScreen({ navigation }: SellerDashboardScr
   });
   const topBuyers = Object.values(buyerSpend).sort((a, b) => b.spend - a.spend).slice(0, 5);
 
-  const closeDropdowns = () => { setSalesDropdownOpen(false); setOrderDropdownOpen(false); };
-
   const avatarUri      = user?.profilePicture;
   const avatarInitials = user?.name
     ? user.name.split(' ').map((n: string) => n[0]).slice(0, 2).join('').toUpperCase()
     : '?';
 
   return (
-    <TouchableWithoutFeedback onPress={closeDropdowns}>
-      <View style={styles.container}>
+    // ✅ Plain View — no TouchableWithoutFeedback intercepting scroll gestures
+    <View style={styles.container}>
 
-        {/* ─── Top Bar ─────────────────────────────────────────── */}
-        <View style={styles.topBar}>
-          <Pressable
-            style={({ pressed }) => [styles.avatarBtn, pressed && { opacity: 0.75 }]}
-            onPress={() => stackNav.navigate('SellerProfile' as any)}
-            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-          >
-            {avatarUri ? (
-              <Image source={{ uri: avatarUri }} style={styles.avatarImage} />
-            ) : (
-              <View style={styles.avatarFallback}>
-                <Text style={styles.avatarInitials}>{avatarInitials}</Text>
-              </View>
-            )}
-          </Pressable>
+      {/* ─── Top Bar ─────────────────────────────────────────── */}
+      <View style={styles.topBar}>
+        <Pressable
+          style={({ pressed }) => [styles.avatarBtn, pressed && { opacity: 0.75 }]}
+          onPress={() => stackNav.navigate('SellerProfile' as any)}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+        >
+          {avatarUri ? (
+            <Image source={{ uri: avatarUri }} style={styles.avatarImage} />
+          ) : (
+            <View style={styles.avatarFallback}>
+              <Text style={styles.avatarInitials}>{avatarInitials}</Text>
+            </View>
+          )}
+        </Pressable>
 
-          <View style={styles.storeIdentity}>
-            <Text style={styles.storeDashboardLabel}>Seller Dashboard</Text>
-            <Text style={styles.storeName} numberOfLines={1}>{user?.name ?? 'My Store'}</Text>
-          </View>
-
-          <Pressable
-            style={({ pressed }) => [styles.notifBtn, pressed && { opacity: 0.75 }]}
-            onPress={() => stackNav.navigate('SellerNotifications' as any)}
-            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-          >
-            <BellIcon size={15} color="rgba(255,255,255,0.75)" />
-            <Text style={styles.notifBtnText}>Notifications</Text>
-            {stats.pendingOrders > 0 && (
-              <View style={styles.notifCountBadge}>
-                <Text style={styles.notifCountBadgeText}>
-                  {stats.pendingOrders > 99 ? '99+' : stats.pendingOrders}
-                </Text>
-              </View>
-            )}
-          </Pressable>
+        <View style={styles.storeIdentity}>
+          <Text style={styles.storeDashboardLabel}>Seller Dashboard</Text>
+          <Text style={styles.storeName} numberOfLines={1}>{user?.name ?? 'My Store'}</Text>
         </View>
 
-        {/* ─── KPI Strip ───────────────────────────────────────── */}
-        <View style={styles.kpiStrip}>
-          <View style={styles.kpiItem}>
-            <Text style={styles.kpiLabel}>Total Orders</Text>
-            <Text style={styles.kpiValue}>{stats.totalOrders}</Text>
-          </View>
-          <View style={styles.kpiItem}>
-            <Text style={styles.kpiLabel}>Pending</Text>
-            <Text style={[styles.kpiValue, { color: C.amber }]}>{stats.pendingOrders}</Text>
-          </View>
-          <View style={[styles.kpiItem, styles.kpiItemLast]}>
-            <Text style={styles.kpiLabel}>Revenue</Text>
-            <Text style={[styles.kpiValue, { color: C.green }]}>
-              {stats.totalRevenue >= 1000
-                ? `₱${(stats.totalRevenue / 1000).toFixed(1)}k`
-                : `₱${stats.totalRevenue}`}
-            </Text>
-          </View>
+        <Pressable
+          style={({ pressed }) => [styles.notifBtn, pressed && { opacity: 0.75 }]}
+          onPress={() => stackNav.navigate('SellerNotifications' as any)}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+        >
+          <BellIcon size={15} color="rgba(255,255,255,0.75)" />
+          <Text style={styles.notifBtnText}>Notifications</Text>
+          {stats.pendingOrders > 0 && (
+            <View style={styles.notifCountBadge}>
+              <Text style={styles.notifCountBadgeText}>
+                {stats.pendingOrders > 99 ? '99+' : stats.pendingOrders}
+              </Text>
+            </View>
+          )}
+        </Pressable>
+      </View>
+
+      {/* ─── KPI Strip ───────────────────────────────────────── */}
+      <View style={styles.kpiStrip}>
+        <View style={styles.kpiItem}>
+          <Text style={styles.kpiLabel}>Total Orders</Text>
+          <Text style={styles.kpiValue}>{stats.totalOrders}</Text>
         </View>
+        <View style={styles.kpiItem}>
+          <Text style={styles.kpiLabel}>Pending</Text>
+          <Text style={[styles.kpiValue, { color: C.amber }]}>{stats.pendingOrders}</Text>
+        </View>
+        <View style={[styles.kpiItem, styles.kpiItemLast]}>
+          <Text style={styles.kpiLabel}>Revenue</Text>
+          <Text style={[styles.kpiValue, { color: C.green }]}>
+            {stats.totalRevenue >= 1000
+              ? `₱${(stats.totalRevenue / 1000).toFixed(1)}k`
+              : `₱${stats.totalRevenue}`}
+          </Text>
+        </View>
+      </View>
 
-        {/* ─── White Body Shell ─────────────────────────────────── */}
-        <View style={styles.bodyShell}>
-          <ScrollView
-            keyboardShouldPersistTaps="handled"
-            showsVerticalScrollIndicator={false}
-            refreshControl={
-              <RefreshControl
-                refreshing={refreshing}
-                onRefresh={handleRefresh}
-                colors={[C.ink]}
-                tintColor={C.ink}
-              />
-            }
-          >
-            <View style={styles.body}>
+      {/* ─── White Body Shell ─────────────────────────────────── */}
+      <View style={styles.bodyShell}>
+        <ScrollView
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+          // ✅ Close dropdowns when user starts scrolling instead of via outer tap
+          onScrollBeginDrag={closeDropdowns}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={handleRefresh}
+              colors={[C.ink]}
+              tintColor={C.ink}
+            />
+          }
+        >
+          <View style={styles.body}>
 
-              {/* ─── Sales Statistics ─────────────────────────────────── */}
-              <View style={[styles.card, { zIndex: salesDropdownOpen ? 20 : 1, marginTop: 18 }]}>
-                <View style={styles.cardHeader}>
-                  <Text style={styles.cardTitle}>Sales Statistics</Text>
-                  <View style={{ position: 'relative' }}>
-                    <Pressable
-                      style={styles.periodBtn}
-                      onPress={() => { setOrderDropdownOpen(false); setSalesDropdownOpen((v) => !v); }}
-                    >
-                      <Text style={styles.periodBtnText}>{salesPeriod}</Text>
-                      <Text style={styles.periodBtnArrow}>{salesDropdownOpen ? '▴' : '▾'}</Text>
-                    </Pressable>
-                    {salesDropdownOpen && (
-                      <View style={styles.dropdown}>
-                        {SALES_PERIODS.map((p) => (
-                          <Pressable
-                            key={p}
-                            style={[styles.dropdownItem, salesPeriod === p && styles.dropdownItemActive]}
-                            onPress={() => { setSalesPeriod(p); setSalesDropdownOpen(false); }}
-                          >
-                            <Text style={[styles.dropdownItemText, salesPeriod === p && styles.dropdownItemTextActive]}>{p}</Text>
-                            {salesPeriod === p && <Text style={{ fontSize: 12, color: C.violet }}>✓</Text>}
-                          </Pressable>
-                        ))}
-                      </View>
-                    )}
-                  </View>
-                </View>
-
-                {/* Legend */}
-                <View style={styles.legendRow}>
-                  <View style={styles.legendItem}>
-                    <View style={[styles.legendDot, { backgroundColor: C.amber }]} />
-                    <Text style={styles.legendText}>Amount</Text>
-                  </View>
-                  <View style={styles.legendItem}>
-                    <View style={[styles.legendDot, { backgroundColor: C.blue }]} />
-                    <Text style={styles.legendText}>Orders</Text>
-                  </View>
-                </View>
-
-                {/* Chart */}
-                <View style={styles.chartArea}>
-                  <View style={styles.yAxis}>
-                    {['10k', '5k', '3k', '1k', '0'].map((l) => (
-                      <Text key={l} style={styles.yLabel}>{l}</Text>
-                    ))}
-                  </View>
-                  <View style={{ flex: 1, overflow: 'hidden' }}>
-                    <LineChart data={chartConfig.revenue} color={C.amber} height={100} />
-                    <View style={{ marginTop: -100 }}>
-                      <LineChart data={chartConfig.counts} color={C.blue} height={100} />
-                    </View>
-                    <View style={styles.xAxis}>
-                      {chartConfig.labels.map((l, i) => (
-                        <Text
-                          key={i}
-                          style={[styles.xLabel, i === chartConfig.highlightIdx && styles.xLabelActive]}
-                        >
-                          {l}
-                        </Text>
-                      ))}
-                    </View>
-                  </View>
-                </View>
-
-                {/* Summary */}
-                <View style={styles.chartSummary}>
-                  <View style={styles.chartSummaryItem}>
-                    <Text style={styles.chartSummaryValue}>
-                      ₱{periodIncome >= 1000 ? `${(periodIncome / 1000).toFixed(1)}k` : periodIncome}
-                    </Text>
-                    <Text style={styles.chartSummaryLabel}>Income</Text>
-                  </View>
-                  <View style={[styles.chartSummaryItem, styles.chartSummaryBorder]}>
-                    <Text style={styles.chartSummaryValue}>{periodDelivered}</Text>
-                    <Text style={styles.chartSummaryLabel}>Delivered</Text>
-                  </View>
-                  <View style={styles.chartSummaryItem}>
-                    <Text style={styles.chartSummaryValue}>{periodOrders.length}</Text>
-                    <Text style={styles.chartSummaryLabel}>Total Orders</Text>
-                  </View>
-                </View>
-              </View>
-
-              {/* ─── Top 10 Trending Products ─────────────────────────── */}
-              <View style={styles.sectionHeader}>
-                <Text style={styles.sectionTitle}>Top 10 Trending Products</Text>
-                <Pressable onPress={() => (navigation as any).navigate('Products')}>
-                  <Text style={styles.seeAll}>See all</Text>
-                </Pressable>
-              </View>
-
-              {topProducts.length === 0 ? (
-                <View style={styles.emptyInline}>
-                  <Text style={styles.emptyInlineText}>No product data yet</Text>
-                </View>
-              ) : (
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.productScroll}>
-                  {topProducts.map((p, i) => (
-                    <View key={i} style={styles.productCard}>
-                      <View style={styles.productImageWrap}>
-                        {p.image ? (
-                          <Image source={{ uri: p.image }} style={styles.productImage} resizeMode="cover" />
-                        ) : (
-                          <View style={styles.productImagePlaceholder}>
-                            <Text style={{ fontSize: 28 }}>📦</Text>
-                          </View>
-                        )}
-                        <View style={styles.productRankBadge}>
-                          <Text style={styles.productRankText}>#{i + 1}</Text>
-                        </View>
-                      </View>
-                      <Text style={styles.productName} numberOfLines={1}>{p.name}</Text>
-                      <Text style={styles.productPrice}>₱{p.price.toLocaleString()}</Text>
-                      <Text style={styles.productSold}>{p.count} sold</Text>
-                    </View>
-                  ))}
-                </ScrollView>
-              )}
-
-              {/* ─── Top 5 Spending Customers ─────────────────────────── */}
-              <View style={styles.sectionHeader}>
-                <Text style={styles.sectionTitle}>Top 5 Spending Customers</Text>
-              </View>
-
-              {topBuyers.length === 0 ? (
-                <View style={styles.emptyCard}>
-                  <Text style={{ fontSize: 32 }}>👥</Text>
-                  <Text style={styles.emptyTitle}>No customer data yet</Text>
-                  <Text style={styles.emptyText}>Customer spend will appear here</Text>
-                </View>
-              ) : (
-                <View style={styles.card}>
-                  {topBuyers.map((b, i) => (
-                    <View key={b.id} style={[styles.buyerRow, i < topBuyers.length - 1 && styles.buyerRowBorder]}>
-                      <View style={[styles.buyerRank, i === 0 && styles.buyerRankGold]}>
-                        <Text style={[styles.buyerRankText, i === 0 && { color: C.amber }]}>{i + 1}</Text>
-                      </View>
-                      <View style={styles.buyerAvatar}>
-                        <Text style={styles.buyerAvatarText}>{b.id.slice(0, 2).toUpperCase()}</Text>
-                      </View>
-                      <View style={styles.buyerInfo}>
-                        <Text style={styles.buyerName}>Customer #{b.id.slice(0, 6).toUpperCase()}</Text>
-                        <Text style={styles.buyerOrders}>{b.orderCount} order{b.orderCount !== 1 ? 's' : ''}</Text>
-                      </View>
-                      <Text style={styles.buyerSpend}>
-                        ₱{b.spend >= 1000 ? `${(b.spend / 1000).toFixed(1)}k` : b.spend}
-                      </Text>
-                    </View>
-                  ))}
-                </View>
-              )}
-
-              {/* ─── Recent Orders ────────────────────────────────────── */}
-              <View style={[styles.sectionHeader, { zIndex: orderDropdownOpen ? 20 : 1 }]}>
-                <Text style={styles.sectionTitle}>Recent Orders</Text>
+            {/* ─── Sales Statistics ─────────────────────────────────── */}
+            <View style={[styles.card, { zIndex: salesDropdownOpen ? 20 : 1, marginTop: 18 }]}>
+              <View style={styles.cardHeader}>
+                <Text style={styles.cardTitle}>Sales Statistics</Text>
                 <View style={{ position: 'relative' }}>
                   <Pressable
-                    style={styles.filterBtn}
-                    onPress={() => { setSalesDropdownOpen(false); setOrderDropdownOpen((v) => !v); }}
+                    style={styles.periodBtn}
+                    onPress={() => { setOrderDropdownOpen(false); setSalesDropdownOpen((v) => !v); }}
                   >
-                    <Text style={styles.filterBtnText}>{orderFilter === 'All' ? 'All Status' : orderFilter}</Text>
-                    <Text style={styles.filterBtnArrow}>{orderDropdownOpen ? '▴' : '▾'}</Text>
+                    <Text style={styles.periodBtnText}>{salesPeriod}</Text>
+                    <Text style={styles.periodBtnArrow}>{salesDropdownOpen ? '▴' : '▾'}</Text>
                   </Pressable>
-                  {orderDropdownOpen && (
-                    <View style={[styles.dropdown, styles.dropdownRight]}>
-                      {ORDER_FILTERS.map((f) => (
+                  {salesDropdownOpen && (
+                    <View style={styles.dropdown}>
+                      {SALES_PERIODS.map((p) => (
                         <Pressable
-                          key={f}
-                          style={[styles.dropdownItem, orderFilter === f && styles.dropdownItemActive]}
-                          onPress={() => { setOrderFilter(f); setOrderDropdownOpen(false); }}
+                          key={p}
+                          style={[styles.dropdownItem, salesPeriod === p && styles.dropdownItemActive]}
+                          onPress={() => { setSalesPeriod(p); setSalesDropdownOpen(false); }}
                         >
-                          <Text style={[styles.dropdownItemText, orderFilter === f && styles.dropdownItemTextActive]}>{f}</Text>
-                          {orderFilter === f && <Text style={{ fontSize: 12, color: C.violet }}>✓</Text>}
+                          <Text style={[styles.dropdownItemText, salesPeriod === p && styles.dropdownItemTextActive]}>{p}</Text>
+                          {salesPeriod === p && <Text style={{ fontSize: 12, color: C.violet }}>✓</Text>}
                         </Pressable>
                       ))}
                     </View>
@@ -514,62 +364,214 @@ export default function SellerDashboardScreen({ navigation }: SellerDashboardScr
                 </View>
               </View>
 
-              {filteredOrders.length === 0 ? (
-                <View style={styles.emptyCard}>
-                  <Text style={{ fontSize: 32 }}>📋</Text>
-                  <Text style={styles.emptyTitle}>No orders found</Text>
-                  <Text style={styles.emptyText}>
-                    {orderFilter === 'All'
-                      ? 'Orders will appear once buyers start purchasing'
-                      : `No ${orderFilter.toLowerCase()} orders at the moment`}
-                  </Text>
+              {/* Legend */}
+              <View style={styles.legendRow}>
+                <View style={styles.legendItem}>
+                  <View style={[styles.legendDot, { backgroundColor: C.amber }]} />
+                  <Text style={styles.legendText}>Amount</Text>
                 </View>
-              ) : (
-                <View style={styles.card}>
-                  {filteredOrders.map((order, i) => {
-                    const firstItem = order.items?.[0];
-                    const color = STATUS_COLORS[order.status] ?? { bg: '#F3F4F6', text: '#6B7280' };
-                    return (
-                      <Pressable
-                        key={order.id}
-                        style={({ pressed }) => [
-                          styles.orderRow,
-                          i < filteredOrders.length - 1 && styles.orderRowBorder,
-                          pressed && { opacity: 0.82 },
-                        ]}
-                      >
-                        <View style={styles.orderThumb}>
-                          {firstItem?.product?.images?.[0] ? (
-                            <Image source={{ uri: firstItem.product.images[0] }} style={styles.orderThumbImage} resizeMode="cover" />
-                          ) : (
-                            <Text style={{ fontSize: 20 }}>📦</Text>
-                          )}
-                        </View>
-                        <View style={styles.orderInfo}>
-                          <Text style={styles.orderName} numberOfLines={1}>
-                            {firstItem?.product?.name ?? `Order #${order.id.slice(0, 6).toUpperCase()}`}
-                          </Text>
-                          <Text style={styles.orderMeta}>
-                            #{order.id.slice(0, 6).toUpperCase()} · {order.shippingAddress?.split(',')[0]}
-                          </Text>
-                          <View style={[styles.statusBadge, { backgroundColor: color.bg }]}>
-                            <Text style={[styles.statusBadgeText, { color: color.text }]}>
-                              {order.status.charAt(0).toUpperCase() + order.status.slice(1)}
-                            </Text>
-                          </View>
-                        </View>
-                        <Text style={styles.orderAmount}>₱{order.totalAmount.toLocaleString()}</Text>
-                      </Pressable>
-                    );
-                  })}
+                <View style={styles.legendItem}>
+                  <View style={[styles.legendDot, { backgroundColor: C.blue }]} />
+                  <Text style={styles.legendText}>Orders</Text>
                 </View>
-              )}
+              </View>
 
-              <View style={{ height: 40 }} />
+              {/* Chart */}
+              <View style={styles.chartArea}>
+                <View style={styles.yAxis}>
+                  {['10k', '5k', '3k', '1k', '0'].map((l) => (
+                    <Text key={l} style={styles.yLabel}>{l}</Text>
+                  ))}
+                </View>
+                <View style={{ flex: 1, overflow: 'hidden' }}>
+                  <LineChart data={chartConfig.revenue} color={C.amber} height={100} />
+                  <View style={{ marginTop: -100 }}>
+                    <LineChart data={chartConfig.counts} color={C.blue} height={100} />
+                  </View>
+                  <View style={styles.xAxis}>
+                    {chartConfig.labels.map((l, i) => (
+                      <Text
+                        key={i}
+                        style={[styles.xLabel, i === chartConfig.highlightIdx && styles.xLabelActive]}
+                      >
+                        {l}
+                      </Text>
+                    ))}
+                  </View>
+                </View>
+              </View>
+
+              {/* Summary */}
+              <View style={styles.chartSummary}>
+                <View style={styles.chartSummaryItem}>
+                  <Text style={styles.chartSummaryValue}>
+                    ₱{periodIncome >= 1000 ? `${(periodIncome / 1000).toFixed(1)}k` : periodIncome}
+                  </Text>
+                  <Text style={styles.chartSummaryLabel}>Income</Text>
+                </View>
+                <View style={[styles.chartSummaryItem, styles.chartSummaryBorder]}>
+                  <Text style={styles.chartSummaryValue}>{periodDelivered}</Text>
+                  <Text style={styles.chartSummaryLabel}>Delivered</Text>
+                </View>
+                <View style={styles.chartSummaryItem}>
+                  <Text style={styles.chartSummaryValue}>{periodOrders.length}</Text>
+                  <Text style={styles.chartSummaryLabel}>Total Orders</Text>
+                </View>
+              </View>
             </View>
-          </ScrollView>
-        </View>
+
+            {/* ─── Top 10 Trending Products ─────────────────────────── */}
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>Top 10 Trending Products</Text>
+              <Pressable onPress={() => (navigation as any).navigate('Products')}>
+                <Text style={styles.seeAll}>See all</Text>
+              </Pressable>
+            </View>
+
+            {topProducts.length === 0 ? (
+              <View style={styles.emptyInline}>
+                <Text style={styles.emptyInlineText}>No product data yet</Text>
+              </View>
+            ) : (
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.productScroll}>
+                {topProducts.map((p, i) => (
+                  <View key={i} style={styles.productCard}>
+                    <View style={styles.productImageWrap}>
+                      {p.image ? (
+                        <Image source={{ uri: p.image }} style={styles.productImage} resizeMode="cover" />
+                      ) : (
+                        <View style={styles.productImagePlaceholder}>
+                          <Text style={{ fontSize: 28 }}>📦</Text>
+                        </View>
+                      )}
+                      <View style={styles.productRankBadge}>
+                        <Text style={styles.productRankText}>#{i + 1}</Text>
+                      </View>
+                    </View>
+                    <Text style={styles.productName} numberOfLines={1}>{p.name}</Text>
+                    <Text style={styles.productPrice}>₱{p.price.toLocaleString()}</Text>
+                    <Text style={styles.productSold}>{p.count} sold</Text>
+                  </View>
+                ))}
+              </ScrollView>
+            )}
+
+            {/* ─── Top 5 Spending Customers ─────────────────────────── */}
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>Top 5 Spending Customers</Text>
+            </View>
+
+            {topBuyers.length === 0 ? (
+              <View style={styles.emptyCard}>
+                <Text style={{ fontSize: 32 }}>👥</Text>
+                <Text style={styles.emptyTitle}>No customer data yet</Text>
+                <Text style={styles.emptyText}>Customer spend will appear here</Text>
+              </View>
+            ) : (
+              <View style={styles.card}>
+                {topBuyers.map((b, i) => (
+                  <View key={b.id} style={[styles.buyerRow, i < topBuyers.length - 1 && styles.buyerRowBorder]}>
+                    <View style={[styles.buyerRank, i === 0 && styles.buyerRankGold]}>
+                      <Text style={[styles.buyerRankText, i === 0 && { color: C.amber }]}>{i + 1}</Text>
+                    </View>
+                    <View style={styles.buyerAvatar}>
+                      <Text style={styles.buyerAvatarText}>{b.id.slice(0, 2).toUpperCase()}</Text>
+                    </View>
+                    <View style={styles.buyerInfo}>
+                      <Text style={styles.buyerName}>Customer #{b.id.slice(0, 6).toUpperCase()}</Text>
+                      <Text style={styles.buyerOrders}>{b.orderCount} order{b.orderCount !== 1 ? 's' : ''}</Text>
+                    </View>
+                    <Text style={styles.buyerSpend}>
+                      ₱{b.spend >= 1000 ? `${(b.spend / 1000).toFixed(1)}k` : b.spend}
+                    </Text>
+                  </View>
+                ))}
+              </View>
+            )}
+
+            {/* ─── Recent Orders ────────────────────────────────────── */}
+            <View style={[styles.sectionHeader, { zIndex: orderDropdownOpen ? 20 : 1 }]}>
+              <Text style={styles.sectionTitle}>Recent Orders</Text>
+              <View style={{ position: 'relative' }}>
+                <Pressable
+                  style={styles.filterBtn}
+                  onPress={() => { setSalesDropdownOpen(false); setOrderDropdownOpen((v) => !v); }}
+                >
+                  <Text style={styles.filterBtnText}>{orderFilter === 'All' ? 'All Status' : orderFilter}</Text>
+                  <Text style={styles.filterBtnArrow}>{orderDropdownOpen ? '▴' : '▾'}</Text>
+                </Pressable>
+                {orderDropdownOpen && (
+                  <View style={[styles.dropdown, styles.dropdownRight]}>
+                    {ORDER_FILTERS.map((f) => (
+                      <Pressable
+                        key={f}
+                        style={[styles.dropdownItem, orderFilter === f && styles.dropdownItemActive]}
+                        onPress={() => { setOrderFilter(f); setOrderDropdownOpen(false); }}
+                      >
+                        <Text style={[styles.dropdownItemText, orderFilter === f && styles.dropdownItemTextActive]}>{f}</Text>
+                        {orderFilter === f && <Text style={{ fontSize: 12, color: C.violet }}>✓</Text>}
+                      </Pressable>
+                    ))}
+                  </View>
+                )}
+              </View>
+            </View>
+
+            {filteredOrders.length === 0 ? (
+              <View style={styles.emptyCard}>
+                <Text style={{ fontSize: 32 }}>📋</Text>
+                <Text style={styles.emptyTitle}>No orders found</Text>
+                <Text style={styles.emptyText}>
+                  {orderFilter === 'All'
+                    ? 'Orders will appear once buyers start purchasing'
+                    : `No ${orderFilter.toLowerCase()} orders at the moment`}
+                </Text>
+              </View>
+            ) : (
+              <View style={styles.card}>
+                {filteredOrders.map((order, i) => {
+                  const firstItem = order.items?.[0];
+                  const color = STATUS_COLORS[order.status] ?? { bg: '#F3F4F6', text: '#6B7280' };
+                  return (
+                    <Pressable
+                      key={order.id}
+                      style={({ pressed }) => [
+                        styles.orderRow,
+                        i < filteredOrders.length - 1 && styles.orderRowBorder,
+                        pressed && { opacity: 0.82 },
+                      ]}
+                    >
+                      <View style={styles.orderThumb}>
+                        {firstItem?.product?.images?.[0] ? (
+                          <Image source={{ uri: firstItem.product.images[0] }} style={styles.orderThumbImage} resizeMode="cover" />
+                        ) : (
+                          <Text style={{ fontSize: 20 }}>📦</Text>
+                        )}
+                      </View>
+                      <View style={styles.orderInfo}>
+                        <Text style={styles.orderName} numberOfLines={1}>
+                          {firstItem?.product?.name ?? `Order #${order.id.slice(0, 6).toUpperCase()}`}
+                        </Text>
+                        <Text style={styles.orderMeta}>
+                          #{order.id.slice(0, 6).toUpperCase()} · {order.shippingAddress?.split(',')[0]}
+                        </Text>
+                        <View style={[styles.statusBadge, { backgroundColor: color.bg }]}>
+                          <Text style={[styles.statusBadgeText, { color: color.text }]}>
+                            {order.status.charAt(0).toUpperCase() + order.status.slice(1)}
+                          </Text>
+                        </View>
+                      </View>
+                      <Text style={styles.orderAmount}>₱{order.totalAmount.toLocaleString()}</Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            )}
+
+            <View style={{ height: 40 }} />
+          </View>
+        </ScrollView>
       </View>
-    </TouchableWithoutFeedback>
+    </View>
   );
 }

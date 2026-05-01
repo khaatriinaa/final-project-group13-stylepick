@@ -8,6 +8,7 @@ import {
 import { useAuth } from '../../../context/AuthContext';
 import { useCart } from '../../../context/CartContext';
 import { placeOrder } from '../../../services/orderService';
+import { decrementStock, getProductById } from '../../../services/productService';
 import { CheckoutScreenProps } from '../../../props/props';
 import { styles } from './CheckoutScreen.styles';
 
@@ -47,6 +48,43 @@ export default function CheckoutScreen({ navigation, route }: CheckoutScreenProp
     });
   };
 
+  const verifyStockAvailability = async (): Promise<string | null> => {
+    for (const item of selectedItems) {
+      try {
+        const liveProduct = await getProductById(item.product.id);
+        if (!liveProduct) {
+          return `"${item.product.name}" is no longer available.`;
+        }
+        if (liveProduct.stock < item.quantity) {
+          return `"${item.product.name}" only has ${liveProduct.stock} unit${liveProduct.stock === 1 ? '' : 's'} left, but you ordered ${item.quantity}.`;
+        }
+      } catch {
+        return `Failed to verify stock for "${item.product.name}". Please try again.`;
+      }
+    }
+    return null;
+  };
+
+  // ─── Single owner of stock decrement ─────────────────────────────────────
+  // placeOrder() no longer calls decrementStock internally, so this is the
+  // one and only place stock is reduced after a successful checkout.
+  const updateAllStocks = async (): Promise<void> => {
+    const results = await Promise.allSettled(
+      selectedItems.map((item: any) =>
+        decrementStock(item.product.id, item.quantity)
+      )
+    );
+
+    const failed = results
+      .map((r, i) => ({ r, item: selectedItems[i] }))
+      .filter(({ r }) => r.status === 'rejected');
+
+    if (failed.length > 0) {
+      const names = failed.map(({ item }) => item.product.name).join(', ');
+      console.error(`Stock decrement failed for: ${names}`);
+    }
+  };
+
   const handlePlaceOrder = async () => {
     const validationError = validate();
     if (validationError) {
@@ -55,7 +93,16 @@ export default function CheckoutScreen({ navigation, route }: CheckoutScreenProp
     }
 
     setSubmitting(true);
+
     try {
+      // 1. Re-check live stock right before placing the order.
+      const stockError = await verifyStockAvailability();
+      if (stockError) {
+        Alert.alert('Stock Unavailable', stockError);
+        return;
+      }
+
+      // 2. Place orders grouped by seller.
       for (const [sellerId, items] of Object.entries(bySeller)) {
         await placeOrder({
           buyerId: user!.id,
@@ -67,41 +114,48 @@ export default function CheckoutScreen({ navigation, route }: CheckoutScreenProp
         });
       }
 
-      // Remove successfully ordered items from cart
+      // 3. Deduct stock ONCE here — placeOrder() no longer does this
+      //    internally, so there is no double-decrement. Awaited before
+      //    navigation so the local cache is warm when BuyerHomeScreen's
+      //    useFocusEffect fires getProducts().
+      await updateAllStocks();
+
+      // 4. Remove items from cart.
       removeCheckedOutItems();
 
-      Alert.alert(
-        'Order Placed!',
-        'Your order has been placed successfully.',
-        [
+      // 5. Navigate to the Orders tab.
+      navigation.reset({
+        index: 0,
+        routes: [
           {
-            text: 'View Orders',
-            onPress: () => {
-              // Reset stack to BuyerTabs, then switch to the Orders tab
-              navigation.reset({
-                index: 0,
-                routes: [
-                  {
-                    name: 'BuyerTabs',
-                    state: {
-                      routes: [
-                        { name: 'Home' },
-                        { name: 'Cart' },
-                        { name: 'Orders' },  // ← land here
-                        { name: 'Profile' },
-                      ],
-                      index: 2, // Orders is the 3rd tab (0-indexed)
-                    },
-                  },
-                ],
-              });
+            name: 'BuyerTabs',
+            state: {
+              routes: [
+                { name: 'Home' },
+                { name: 'Cart' },
+                { name: 'Orders' },
+                { name: 'Profile' },
+              ],
+              index: 2,
             },
           },
         ],
-        { cancelable: false }
-      );
+      });
+
+      // Alert after navigation so it doesn't block the nav reset.
+      setTimeout(() => {
+        Alert.alert(
+          'Order Placed Successfully!',
+          'Thank you for your purchase.',
+        );
+      }, 300);
+
     } catch (err: any) {
-      Alert.alert('Error', err.message ?? 'Failed to place order.');
+      console.error('Checkout error:', err);
+      Alert.alert(
+        'Order Failed',
+        err.message || 'Failed to place your order. Please try again.'
+      );
     } finally {
       setSubmitting(false);
     }
@@ -133,7 +187,6 @@ export default function CheckoutScreen({ navigation, route }: CheckoutScreenProp
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingBottom: 110 }}
       >
-        {/* Missing fields warning */}
         {missingFields.length > 0 && (
           <View style={styles.warningBox}>
             <Text style={styles.warningTitle}>⚠ Incomplete Profile</Text>
@@ -149,7 +202,7 @@ export default function CheckoutScreen({ navigation, route }: CheckoutScreenProp
           </View>
         )}
 
-        {/* Shipping Address */}
+        {/* Delivery Details */}
         <View style={styles.sectionCard}>
           <View style={styles.sectionLabelRow}>
             <Text style={styles.pinIcon}>📍</Text>
@@ -185,7 +238,10 @@ export default function CheckoutScreen({ navigation, route }: CheckoutScreenProp
           </Text>
 
           {selectedItems.map((item: any) => (
-            <View key={item.product.id} style={styles.productRow}>
+            <View
+              key={`${item.product.id}-${item.selectedColor || ''}-${item.selectedSize || ''}`}
+              style={styles.productRow}
+            >
               <Image
                 source={{ uri: item.product.images?.[0] }}
                 style={styles.productImage}
@@ -195,7 +251,11 @@ export default function CheckoutScreen({ navigation, route }: CheckoutScreenProp
                   {item.product.name}
                 </Text>
                 <Text style={styles.productPrice}>₱{item.product.price.toFixed(2)}</Text>
-                <Text style={styles.productQty}>Qty: {item.quantity}</Text>
+                <Text style={styles.productQty}>
+                  Qty: {item.quantity}
+                  {(item.selectedColor || item.selectedSize) &&
+                    ` • ${[item.selectedColor, item.selectedSize].filter(Boolean).join(' / ')}`}
+                </Text>
               </View>
               <Text style={styles.productSubtotal}>
                 ₱{(item.product.price * item.quantity).toFixed(2)}
@@ -204,7 +264,7 @@ export default function CheckoutScreen({ navigation, route }: CheckoutScreenProp
           ))}
         </View>
 
-        {/* Payment Method — COD only */}
+        {/* Payment Method */}
         <View style={styles.sectionCard}>
           <Text style={styles.sectionHeader}>Payment Method</Text>
           <View style={styles.paymentOption}>

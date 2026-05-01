@@ -5,7 +5,6 @@ import React, {
   useState,
   useCallback,
   useEffect,
-  useRef,
   ReactNode,
 } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -35,32 +34,28 @@ export function FavoritesProvider({ children }: { children: ReactNode }) {
   const [favorites, setFavorites] = useState<Product[]>([]);
   const [loaded, setLoaded] = useState(false);
 
-  // ── Load from AsyncStorage once on mount ─────────────────────────────────
+  // 1. Load from AsyncStorage on mount
   useEffect(() => {
-    AsyncStorage.getItem(FAVORITES_STORAGE_KEY)
-      .then((json) => {
+    const loadData = async () => {
+      try {
+        const json = await AsyncStorage.getItem(FAVORITES_STORAGE_KEY);
         if (json) {
-          try {
-            const parsed = JSON.parse(json);
-            if (Array.isArray(parsed)) setFavorites(parsed);
-          } catch {
-            // corrupted data — start fresh
-          }
+          const parsed = JSON.parse(json);
+          if (Array.isArray(parsed)) setFavorites(parsed);
         }
-      })
-      .catch(console.error)
-      .finally(() => setLoaded(true));
+      } catch (e) {
+        console.error("Failed to load favorites:", e);
+      } finally {
+        setLoaded(true);
+      }
+    };
+    loadData();
   }, []);
 
-  // ── Persist to AsyncStorage whenever favorites changes ───────────────────
-  const isFirstSave = useRef(true);
   useEffect(() => {
-    if (!loaded) return;
-    if (isFirstSave.current) {
-      isFirstSave.current = false;
-      return;
+    if (loaded) {
+      AsyncStorage.setItem(FAVORITES_STORAGE_KEY, JSON.stringify(favorites)).catch(console.error);
     }
-    AsyncStorage.setItem(FAVORITES_STORAGE_KEY, JSON.stringify(favorites)).catch(console.error);
   }, [favorites, loaded]);
 
   const addFavorite = useCallback((product: Product) => {
@@ -78,19 +73,10 @@ export function FavoritesProvider({ children }: { children: ReactNode }) {
     setFavorites([]);
   }, []);
 
-  // ── FIX: read directly from state, not a stale ref ───────────────────────
-  // The ref approach caused isFavorite to return stale values in the same
-  // render cycle as addFavorite/removeFavorite, because the ref is updated
-  // in a useEffect (which runs AFTER render). Reading from the state value
-  // directly via a closure is always in sync with the current render.
-  const favoritesRef = useRef(favorites);
-  useEffect(() => {
-    favoritesRef.current = favorites;
-  }, [favorites]);
-
+  // Directly derive from state - this ensures the heart turns black instantly
   const isFavorite = useCallback(
     (productId: string) => favorites.some((p) => p.id === productId),
-    [favorites], // ← depends on favorites state, not the ref
+    [favorites],
   );
 
   return (
