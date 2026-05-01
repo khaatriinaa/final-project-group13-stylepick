@@ -90,7 +90,6 @@ function HeartIcon({
   favorited?: boolean;
 }) {
   return (
-    // ↓ fill and stroke both red when favorited
     <Svg width={size} height={size} viewBox="0 0 24 24" fill={favorited ? '#EF4444' : 'none'}>
       <Path
         d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"
@@ -281,20 +280,13 @@ function ProductCard({ item, onNavigate, onHeartPress, onAddToCart, isWishlisted
   const discount   = getDiscountPercent(item);
 
   return (
-    // ↓ overflow:'visible' so absolutely-positioned buttons are never clipped
     <View style={[styles.productCard, { overflow: 'visible' }]}>
-
-      {/* ── Product image + info (navigates to detail) ─────────────────────
-          - No android_ripple: on Android it registers a native touch handler
-            that intercepts ALL sibling touches regardless of zIndex/elevation
-          - opacity feedback works identically on iOS and Android            */}
       <Pressable
         onPress={() => onNavigate(item.id)}
         style={({ pressed }) => [
           { flex: 1, borderRadius: 10, opacity: pressed ? 0.9 : 1 },
         ]}
       >
-        {/* ↓ overflow:'visible' on Android so heart/cart buttons sit above  */}
         <View style={[
           styles.productImageWrap,
           {
@@ -357,8 +349,6 @@ function ProductCard({ item, onNavigate, onHeartPress, onAddToCart, isWishlisted
         </View>
       </Pressable>
 
-      {/* ── Heart button — rendered AFTER Pressable so it sits on top ──────
-          zIndex + elevation both set high for iOS and Android respectively  */}
       <TouchableOpacity
         onPress={() => onHeartPress(item)}
         activeOpacity={0.7}
@@ -384,7 +374,6 @@ function ProductCard({ item, onNavigate, onHeartPress, onAddToCart, isWishlisted
         <HeartIcon size={16} favorited={isWishlisted} />
       </TouchableOpacity>
 
-      {/* ── Add-to-cart button ───────────────────────────────────────────── */}
       <TouchableOpacity
         onPress={() => { if (!isSoldOut) onAddToCart(item); }}
         disabled={isSoldOut}
@@ -479,6 +468,7 @@ export default function BuyerHomeScreen({ navigation }: BuyerHomeScreenProps) {
     }
   }, [favoriteIds, addFavorite, removeFavorite, stackNav]);
 
+  // ── Add to cart only — stock does NOT change until checkout ──────────────
   const handleAddToCart = useCallback((item: Product) => {
     if (item.stock <= 0) {
       Alert.alert('Out of Stock', 'This item is currently out of stock.');
@@ -486,11 +476,6 @@ export default function BuyerHomeScreen({ navigation }: BuyerHomeScreenProps) {
     }
     addToCart(item);
     bounce();
-    setAllProducts((prev) =>
-      prev.map((p) =>
-        p.id === item.id ? { ...p, stock: Math.max(0, p.stock - 1) } : p,
-      ),
-    );
   }, [addToCart]);
 
   const scrollToGrid = useCallback(() => {

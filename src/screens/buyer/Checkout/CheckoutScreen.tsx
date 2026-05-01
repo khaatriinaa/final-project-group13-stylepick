@@ -8,7 +8,7 @@ import {
 import { useAuth } from '../../../context/AuthContext';
 import { useCart } from '../../../context/CartContext';
 import { placeOrder } from '../../../services/orderService';
-import { decrementStock, getProductById } from '../../../services/productService';
+import { getProductById } from '../../../services/productService';
 import { CheckoutScreenProps } from '../../../props/props';
 import { styles } from './CheckoutScreen.styles';
 
@@ -65,26 +65,6 @@ export default function CheckoutScreen({ navigation, route }: CheckoutScreenProp
     return null;
   };
 
-  // ─── Single owner of stock decrement ─────────────────────────────────────
-  // placeOrder() no longer calls decrementStock internally, so this is the
-  // one and only place stock is reduced after a successful checkout.
-  const updateAllStocks = async (): Promise<void> => {
-    const results = await Promise.allSettled(
-      selectedItems.map((item: any) =>
-        decrementStock(item.product.id, item.quantity)
-      )
-    );
-
-    const failed = results
-      .map((r, i) => ({ r, item: selectedItems[i] }))
-      .filter(({ r }) => r.status === 'rejected');
-
-    if (failed.length > 0) {
-      const names = failed.map(({ item }) => item.product.name).join(', ');
-      console.error(`Stock decrement failed for: ${names}`);
-    }
-  };
-
   const handlePlaceOrder = async () => {
     const validationError = validate();
     if (validationError) {
@@ -103,6 +83,8 @@ export default function CheckoutScreen({ navigation, route }: CheckoutScreenProp
       }
 
       // 2. Place orders grouped by seller.
+      //    The Supabase trigger on_order_placed automatically decrements
+      //    stock the moment each order row is inserted — no manual decrement needed.
       for (const [sellerId, items] of Object.entries(bySeller)) {
         await placeOrder({
           buyerId: user!.id,
@@ -114,16 +96,12 @@ export default function CheckoutScreen({ navigation, route }: CheckoutScreenProp
         });
       }
 
-      // 3. Deduct stock ONCE here — placeOrder() no longer does this
-      //    internally, so there is no double-decrement. Awaited before
-      //    navigation so the local cache is warm when BuyerHomeScreen's
-      //    useFocusEffect fires getProducts().
-      await updateAllStocks();
-
-      // 4. Remove items from cart.
+      // 3. Remove items from cart.
       removeCheckedOutItems();
 
-      // 5. Navigate to the Orders tab.
+      // 4. Navigate to the Orders tab.
+      //    BuyerHomeScreen's useFocusEffect will call fetchProducts() when
+      //    the user taps Home, pulling the fresh decremented stock from Supabase.
       navigation.reset({
         index: 0,
         routes: [
