@@ -9,6 +9,7 @@ import * as Location from 'expo-location';
 import { useFocusEffect } from '@react-navigation/native';
 import { BuyerProfileScreenProps } from '../../../props/props';
 import { useAuth } from '../../../context/AuthContext';
+import { supabase } from '../../../services/supabaseClient';
 
 const MENU_GENERAL = [
   { id: 'edit',     label: 'Edit Profile',         symbol: '›', icon: '✎' },
@@ -21,16 +22,62 @@ const MENU_PREFERENCES = [
   { id: 'help',     label: 'Help & Support',       symbol: '›', icon: 'ⓘ' },
 ];
 
-const LOGOUT_ICON = '⏻';
+// ─── Upload avatar to Supabase Storage ───────────────────────────────────────
+const uploadAvatar = async (localUri: string, userId: string): Promise<string> => {
+  if (localUri.startsWith('http://') || localUri.startsWith('https://')) {
+    return localUri;
+  }
+  try {
+    const fileName    = `${userId}_${Date.now()}.jpg`;
+    const filePath    = `avatars/${fileName}`;
+    const response    = await fetch(localUri);
+    if (!response.ok) throw new Error(`fetch failed: ${response.status}`);
+    const arrayBuffer = await response.arrayBuffer();
+
+    const { error: uploadError } = await supabase.storage
+      .from('avatars')
+      .upload(filePath, arrayBuffer, {
+        contentType: 'image/jpeg',
+        upsert:      true,
+      });
+    if (uploadError) throw uploadError;
+
+    const { data } = supabase.storage.from('avatars').getPublicUrl(filePath);
+    console.log('Buyer avatar uploaded:', data.publicUrl); // ✅ DEBUG
+    return data.publicUrl;
+  } catch (err) {
+    console.warn('Buyer avatar upload failed:', err); // ✅ DEBUG
+    return localUri;
+  }
+};
+// ─────────────────────────────────────────────────────────────────────────────
 
 export default function BuyerProfileScreen({ navigation }: BuyerProfileScreenProps) {
   const { user, logout, updateProfile } = useAuth();
-  const [imageUri, setImageUri] = useState<string | null>(user?.profilePicture ?? null);
+  const [imageUri, setImageUri]         = useState<string | null>(user?.profilePicture ?? null);
   const [locationLoading, setLocationLoading] = useState(false);
+  const [avatarLoading, setAvatarLoading]     = useState(false);
 
+  // ─── Fetch latest avatar from Supabase on focus ───────────────────────────
   useFocusEffect(useCallback(() => {
-    setImageUri(user?.profilePicture ?? null);
+    const fetchAvatar = async () => {
+      const { data: { user: authUser } } = await supabase.auth.getUser();
+      if (!authUser) return;
+      const { data } = await supabase
+        .from('profiles')
+        .select('avatar_url')
+        .eq('id', authUser.id)
+        .single();
+      if (data?.avatar_url) {
+        setImageUri(data.avatar_url);
+        await updateProfile({ profilePicture: data.avatar_url });
+      } else {
+        setImageUri(user?.profilePicture ?? null);
+      }
+    };
+    fetchAvatar();
   }, [user?.profilePicture]));
+  // ─────────────────────────────────────────────────────────────────────────
 
   const handleChangePicture = () => {
     Alert.alert('Profile Photo', 'Choose an option', [
@@ -38,28 +85,52 @@ export default function BuyerProfileScreen({ navigation }: BuyerProfileScreenPro
         text: 'Take Photo', onPress: async () => {
           const { status } = await ImagePicker.requestCameraPermissionsAsync();
           if (status !== 'granted') { Alert.alert('Permission Denied', 'Camera permission is required.'); return; }
-          const r = await ImagePicker.launchCameraAsync({ allowsEditing: true, quality: 1 });
-          if (!r.canceled) {
-            const uri = r.assets[0].uri;
-            setImageUri(uri);
-            await updateProfile({ profilePicture: uri });
-          }
+          const r = await ImagePicker.launchCameraAsync({ allowsEditing: true, quality: 0.8 });
+          if (!r.canceled) await processAvatar(r.assets[0].uri);
         },
       },
       {
         text: 'Choose from Gallery', onPress: async () => {
           const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
           if (status !== 'granted') { Alert.alert('Permission Denied', 'Gallery permission is required.'); return; }
-          const r = await ImagePicker.launchImageLibraryAsync({ allowsEditing: true, quality: 1 });
-          if (!r.canceled) {
-            const uri = r.assets[0].uri;
-            setImageUri(uri);
-            await updateProfile({ profilePicture: uri });
-          }
+          const r = await ImagePicker.launchImageLibraryAsync({ allowsEditing: true, quality: 0.8 });
+          if (!r.canceled) await processAvatar(r.assets[0].uri);
         },
       },
       { text: 'Cancel', style: 'cancel' },
     ]);
+  };
+
+  const processAvatar = async (localUri: string) => {
+    setAvatarLoading(true);
+    try {
+      const { data: { user: authUser } } = await supabase.auth.getUser();
+      if (!authUser) throw new Error('Not logged in');
+
+      // ─── Upload to Supabase Storage ───────────────────────────────
+      const publicUrl = await uploadAvatar(localUri, authUser.id);
+      setImageUri(publicUrl);
+
+      // ─── Save public URL to profiles table ───────────────────────
+      await supabase
+        .from('profiles')
+        .update({ avatar_url: publicUrl })
+        .eq('id', authUser.id);
+
+      // ─── Save to buyer_profiles table ────────────────────────────
+      await supabase
+        .from('buyer_profiles')
+        .upsert({ id: authUser.id, avatar_url: publicUrl });
+
+      // ─── Save to local auth context ───────────────────────────────
+      await updateProfile({ profilePicture: publicUrl });
+
+      Alert.alert('Success', 'Profile photo updated!');
+    } catch (err: any) {
+      Alert.alert('Error', err.message ?? 'Failed to upload photo.');
+    } finally {
+      setAvatarLoading(false);
+    }
   };
 
   const getCurrentLocation = async () => {
@@ -101,7 +172,7 @@ export default function BuyerProfileScreen({ navigation }: BuyerProfileScreenPro
 
       {/* ── Header ── */}
       <View style={s.header}>
-        <Pressable style={s.avatarWrap} onPress={handleChangePicture}>
+        <Pressable style={s.avatarWrap} onPress={handleChangePicture} disabled={avatarLoading}>
           {imageUri ? (
             <Image source={{ uri: imageUri }} style={s.avatarImg} />
           ) : (
@@ -109,15 +180,20 @@ export default function BuyerProfileScreen({ navigation }: BuyerProfileScreenPro
               <Text style={s.avatarInitial}>{initial}</Text>
             </View>
           )}
-          <View style={s.editBadge}>
-            <Text style={s.editBadgeText}>✎</Text>
-          </View>
+          {avatarLoading ? (
+            <View style={s.avatarOverlay}>
+              <ActivityIndicator color="#FFFFFF" />
+            </View>
+          ) : (
+            <View style={s.editBadge}>
+              <Text style={s.editBadgeText}>✎</Text>
+            </View>
+          )}
         </Pressable>
 
         <Text style={s.name}>{user?.name}</Text>
         <Text style={s.email}>{user?.email}</Text>
 
-        {/* Address now placed directly under email */}
         {user?.address ? (
           <View style={s.addressRow}>
             <Text style={s.addressPin}>⚲</Text>
@@ -236,6 +312,14 @@ const s = StyleSheet.create({
     fontSize: 34,
     fontWeight: '700',
     color: '#111827',
+  },
+  avatarOverlay: {
+    position: 'absolute',
+    top: 0, left: 0, right: 0, bottom: 0,
+    borderRadius: 42,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   editBadge: {
     position: 'absolute',

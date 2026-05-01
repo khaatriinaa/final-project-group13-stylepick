@@ -3,10 +3,11 @@ import React, { useState, useEffect } from 'react';
 import {
   View, Text, TextInput, ScrollView, Pressable,
   Alert, ActivityIndicator, StyleSheet, KeyboardAvoidingView,
-  TouchableWithoutFeedback, Keyboard, Platform,
+  TouchableWithoutFeedback, Keyboard, Platform, Image,
 } from 'react-native';
 import { Formik } from 'formik';
 import * as Yup from 'yup';
+import * as ImagePicker from 'expo-image-picker';
 import { useAuth } from '../../../context/AuthContext';
 import { supabase } from '../../../services/supabaseClient';
 
@@ -43,9 +44,44 @@ const FIELDS = [
   },
 ];
 
+// ─── Upload avatar to Supabase Storage ───────────────────────────────────────
+const uploadAvatar = async (localUri: string, userId: string): Promise<string> => {
+  // If already a remote URL skip upload
+  if (localUri.startsWith('http://') || localUri.startsWith('https://')) {
+    return localUri;
+  }
+  try {
+    const fileName   = `${userId}_${Date.now()}.jpg`;
+    const filePath   = `avatars/${fileName}`;
+
+    const response   = await fetch(localUri);
+    if (!response.ok) throw new Error(`fetch failed: ${response.status}`);
+    const arrayBuffer = await response.arrayBuffer();
+
+    const { error: uploadError } = await supabase.storage
+      .from('avatars')
+      .upload(filePath, arrayBuffer, {
+        contentType: 'image/jpeg',
+        upsert:      true, // overwrite previous avatar
+      });
+
+    if (uploadError) throw uploadError;
+
+    const { data } = supabase.storage.from('avatars').getPublicUrl(filePath);
+    console.log('Avatar uploaded successfully:', data.publicUrl); // ✅ DEBUG
+    return data.publicUrl;
+  } catch (err) {
+    console.warn('Avatar upload failed, keeping local URI:', err); // ✅ DEBUG
+    return localUri;
+  }
+};
+// ─────────────────────────────────────────────────────────────────────────────
+
 export default function EditProfileScreen({ navigation }: any) {
   const { user, updateProfile } = useAuth();
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading]     = useState(false);
+  const [avatarUri, setAvatarUri] = useState<string | null>(user?.profilePicture ?? null);
+  const [avatarLoading, setAvatarLoading] = useState(false);
   const [initialValues, setInitialValues] = useState({
     name:    user?.name    ?? '',
     phone:   user?.phone   ?? '',
@@ -59,7 +95,7 @@ export default function EditProfileScreen({ navigation }: any) {
 
       const { data } = await supabase
         .from('buyer_profiles')
-        .select('full_name, phone_number, delivery_address')
+        .select('full_name, phone_number, delivery_address, avatar_url')
         .eq('id', authUser.id)
         .single();
 
@@ -69,10 +105,69 @@ export default function EditProfileScreen({ navigation }: any) {
           phone:   data.phone_number     ?? user?.phone   ?? '',
           address: data.delivery_address ?? user?.address ?? '',
         });
+        if (data.avatar_url) setAvatarUri(data.avatar_url);
       }
     };
     fetchProfile();
   }, []);
+
+  // ─── Handle avatar change ─────────────────────────────────────────────────
+  const handleChangeAvatar = () => {
+    Alert.alert('Profile Photo', 'Choose an option', [
+      {
+        text: 'Take Photo',
+        onPress: async () => {
+          const { status } = await ImagePicker.requestCameraPermissionsAsync();
+          if (status !== 'granted') { Alert.alert('Permission Denied', 'Camera permission is required.'); return; }
+          const r = await ImagePicker.launchCameraAsync({ allowsEditing: true, quality: 0.8 });
+          if (!r.canceled) await processAvatar(r.assets[0].uri);
+        },
+      },
+      {
+        text: 'Choose from Gallery',
+        onPress: async () => {
+          const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+          if (status !== 'granted') { Alert.alert('Permission Denied', 'Gallery permission is required.'); return; }
+          const r = await ImagePicker.launchImageLibraryAsync({ allowsEditing: true, quality: 0.8 });
+          if (!r.canceled) await processAvatar(r.assets[0].uri);
+        },
+      },
+      { text: 'Cancel', style: 'cancel' },
+    ]);
+  };
+
+  const processAvatar = async (localUri: string) => {
+    setAvatarLoading(true);
+    try {
+      const { data: { user: authUser } } = await supabase.auth.getUser();
+      if (!authUser) throw new Error('Not logged in');
+
+      // ─── Upload to Supabase Storage ───────────────────────────────
+      const publicUrl = await uploadAvatar(localUri, authUser.id);
+      setAvatarUri(publicUrl);
+
+      // ─── Save to profiles table ───────────────────────────────────
+      await supabase
+        .from('profiles')
+        .update({ avatar_url: publicUrl })
+        .eq('id', authUser.id);
+
+      // ─── Save to buyer_profiles table ────────────────────────────
+      await supabase
+        .from('buyer_profiles')
+        .upsert({ id: authUser.id, avatar_url: publicUrl });
+
+      // ─── Save to local auth context ───────────────────────────────
+      await updateProfile({ profilePicture: publicUrl });
+
+      Alert.alert('Success', 'Profile photo updated!');
+    } catch (err: any) {
+      Alert.alert('Error', err.message ?? 'Failed to upload photo.');
+    } finally {
+      setAvatarLoading(false);
+    }
+  };
+  // ─────────────────────────────────────────────────────────────────────────
 
   const handleSave = async (values: { name: string; phone: string; address: string }) => {
     setLoading(true);
@@ -89,6 +184,17 @@ export default function EditProfileScreen({ navigation }: any) {
             delivery_address: values.address || null,
           });
         if (upsertError) throw new Error(upsertError.message);
+
+        // ─── Also update profiles table ───────────────────────────
+        await supabase
+          .from('profiles')
+          .update({
+            full_name:    values.name,
+            phone_number: values.phone   || null,
+            address:      values.address || null,
+          })
+          .eq('id', authUser.id);
+        // ──────────────────────────────────────────────────────────
       }
 
       await updateProfile({
@@ -131,12 +237,32 @@ export default function EditProfileScreen({ navigation }: any) {
 
           {/* ── Avatar row ── */}
           <View style={s.avatarSection}>
-            <View style={s.avatarCircle}>
-              <Text style={s.avatarInitial}>{initial}</Text>
-            </View>
+            <Pressable style={s.avatarWrap} onPress={handleChangeAvatar} disabled={avatarLoading}>
+              {avatarUri ? (
+                <Image source={{ uri: avatarUri }} style={s.avatarImg} />
+              ) : (
+                <View style={s.avatarCircle}>
+                  <Text style={s.avatarInitial}>{initial}</Text>
+                </View>
+              )}
+              {avatarLoading ? (
+                <View style={s.avatarOverlay}>
+                  <ActivityIndicator color="#FFFFFF" />
+                </View>
+              ) : (
+                <View style={s.editBadge}>
+                  <Text style={s.editBadgeText}>✎</Text>
+                </View>
+              )}
+            </Pressable>
             <View style={s.avatarMeta}>
               <Text style={s.avatarName}>{user?.name}</Text>
               <Text style={s.avatarEmail}>{user?.email}</Text>
+              <Pressable onPress={handleChangeAvatar} disabled={avatarLoading}>
+                <Text style={s.changePhotoText}>
+                  {avatarLoading ? 'Uploading...' : 'Change photo'}
+                </Text>
+              </Pressable>
             </View>
           </View>
 
@@ -256,19 +382,54 @@ const s = StyleSheet.create({
     paddingVertical: 20,
     gap: 16,
   },
+  avatarWrap: {
+    position: 'relative',
+    flexShrink: 0,
+  },
+  avatarImg: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    borderWidth: 2,
+    borderColor: '#FFFFFF',
+  },
   avatarCircle: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
+    width: 64,
+    height: 64,
+    borderRadius: 32,
     backgroundColor: '#FFFFFF',
     alignItems: 'center',
     justifyContent: 'center',
-    flexShrink: 0,
   },
   avatarInitial: {
     fontSize: 24,
     fontWeight: '700',
     color: '#111827',
+  },
+  avatarOverlay: {
+    position: 'absolute',
+    top: 0, left: 0, right: 0, bottom: 0,
+    borderRadius: 32,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  editBadge: {
+    position: 'absolute',
+    bottom: -2,
+    right: -2,
+    backgroundColor: '#374151',
+    borderRadius: 10,
+    width: 22,
+    height: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: '#1F2937',
+  },
+  editBadgeText: {
+    fontSize: 10,
+    color: '#FFFFFF',
   },
   avatarMeta: {
     flex: 1,
@@ -278,11 +439,17 @@ const s = StyleSheet.create({
     fontSize: 15,
     fontWeight: '700',
     color: '#FFFFFF',
-    marginBottom: 3,
+    marginBottom: 2,
   },
   avatarEmail: {
     fontSize: 13,
     color: '#9CA3AF',
+    marginBottom: 4,
+  },
+  changePhotoText: {
+    fontSize: 12,
+    color: '#60A5FA',
+    fontWeight: '600',
   },
 
   /* ── Section label above form ── */
