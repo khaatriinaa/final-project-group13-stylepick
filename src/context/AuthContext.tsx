@@ -1,9 +1,7 @@
-// src/context/AuthContext.tsx
-
 import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { User } from '../types';
 import { getCurrentUser, logout as logoutService, updateProfile as updateProfileService } from '../services/authService';
-import { supabase } from '../services/supabaseClient'; // ← ADDED
+import { supabase } from '../services/supabaseClient';
 
 interface AuthContextValue {
   user: User | null;
@@ -27,52 +25,61 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // On app start, restore session from AsyncStorage
-  useEffect(() => {
-    getCurrentUser()
-      .then(setUser)
-      .finally(() => setLoading(false));
-  }, []);
+  // Helper to fetch full profile and sync state
+  const syncUserProfile = async (userId: string, email?: string) => {
+    const { data: profile, error } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('id', userId)
+      .single();
 
-  // ─── SUPABASE: Listen to Supabase auth state changes ─────────
+    if (!error && profile) {
+      setUser({
+        ...(profile as unknown as User),
+        email: email ?? profile.email ?? '',
+      });
+    }
+  };
+
   useEffect(() => {
+    // 1. Initial Session Check: Explicitly handle the "Invalid Refresh Token" case
+    const initializeAuth = async () => {
+      try {
+        const { data: { session }, error } = await supabase.auth.getSession();
+        
+        if (error) {
+          // This catches the 'Refresh Token Not Found' error on startup
+          console.warn("Session initialization error, clearing auth:", error.message);
+          await supabase.auth.signOut();
+          setUser(null);
+        } else if (session?.user) {
+          await syncUserProfile(session.user.id, session.user.email);
+        } else {
+          // Fallback to your local service if no supabase session
+          const localUser = await getCurrentUser();
+          setUser(localUser);
+        }
+      } catch (err) {
+        console.error("Auth init failed:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    initializeAuth();
+
+    // 2. Listen to Supabase auth state changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
         try {
-          if (event === 'SIGNED_IN' && session?.user) {
-            // Fetch the full profile from Supabase profiles table
-            const { data: profile, error } = await supabase
-              .from('profiles')
-              .select('*')
-              .eq('id', session.user.id)
-              .single();
-
-            if (!error && profile) {
-              setUser({
-                ...(profile as unknown as User),
-                email: session.user.email ?? profile.email ?? '', // ← guaranteed from Supabase Auth
-              });
-            }
+          // Handle Sign In or Token Refresh success
+          if ((event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED' || event === 'USER_UPDATED') && session?.user) {
+            await syncUserProfile(session.user.id, session.user.email);
           }
 
+          // Handle Sign Out or session invalidation
           if (event === 'SIGNED_OUT') {
             setUser(null);
-          }
-
-          if (event === 'USER_UPDATED' && session?.user) {
-            // Re-fetch profile on user update
-            const { data: profile, error } = await supabase
-              .from('profiles')
-              .select('*')
-              .eq('id', session.user.id)
-              .single();
-
-            if (!error && profile) {
-              setUser({
-                ...(profile as unknown as User),
-                email: session.user.email ?? profile.email ?? '', // ← guaranteed from Supabase Auth
-              });
-            }
           }
         } catch (supabaseError) {
           console.warn('Supabase onAuthStateChange error:', supabaseError);
@@ -80,45 +87,37 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     );
 
-    // Cleanup subscription on unmount
     return () => {
       subscription.unsubscribe();
     };
   }, []);
-  // ─────────────────────────────────────────────────────────────
 
   const refreshUser = async () => {
     try {
-      const { data: sessionData } = await supabase.auth.getSession();
-      const sessionUser = sessionData?.session?.user;
-
-      if (sessionUser?.id) {
-        const { data: profile, error } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', sessionUser.id)
-          .single();
-
-        if (!error && profile) {
-          setUser({
-            ...(profile as unknown as User),
-            email: sessionUser.email ?? profile.email ?? '', // ← guaranteed from Supabase Auth
-          });
-          return;
-        }
+      const { data: { session }, error } = await supabase.auth.getSession();
+      
+      if (error || !session) {
+        throw new Error("No active session to refresh");
       }
-    } catch (supabaseError) {
-      console.warn('Supabase refreshUser error (local refresh succeeded):', supabaseError);
-    }
 
-    // Fallback to local
-    const u = await getCurrentUser();
-    setUser(u);
+      await syncUserProfile(session.user.id, session.user.email);
+    } catch (supabaseError) {
+      console.warn('Supabase refreshUser error, checking local:', supabaseError);
+      const u = await getCurrentUser();
+      setUser(u);
+    }
   };
 
   const logout = async () => {
-    await logoutService();
-    setUser(null);
+    try {
+      // Sign out from Supabase first to clear storage
+      await supabase.auth.signOut();
+      await logoutService();
+    } catch (err) {
+      console.error("Logout error:", err);
+    } finally {
+      setUser(null);
+    }
   };
 
   const updateProfile = async (

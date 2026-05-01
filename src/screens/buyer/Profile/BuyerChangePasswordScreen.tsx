@@ -4,9 +4,10 @@ import {
   View, Text, TextInput, Pressable, Alert,
   StyleSheet, ScrollView, ActivityIndicator,
   KeyboardAvoidingView, TouchableWithoutFeedback,
-  Keyboard, Platform,
+  Keyboard, Platform, SafeAreaView
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
+import { supabase } from '../../../services/supabaseClient';
 
 type Field = 'current' | 'new' | 'confirm';
 
@@ -14,7 +15,7 @@ export default function BuyerChangePasswordScreen() {
   const navigation = useNavigation();
 
   const [current, setCurrent] = useState('');
-  const [next, setNext]       = useState('');
+  const [next, setNext] = useState('');
   const [confirm, setConfirm] = useState('');
   const [visible, setVisible] = useState<Record<Field, boolean>>({
     current: false, new: false, confirm: false,
@@ -24,8 +25,7 @@ export default function BuyerChangePasswordScreen() {
   const toggle = (field: Field) =>
     setVisible((v) => ({ ...v, [field]: !v[field] }));
 
-  const isDirty =
-    current.trim() !== '' || next.trim() !== '' || confirm.trim() !== '';
+  const isDirty = current.trim() !== '' || next.trim() !== '' || confirm.trim() !== '';
 
   const handleSave = async () => {
     if (!current.trim()) {
@@ -37,15 +37,28 @@ export default function BuyerChangePasswordScreen() {
     if (next !== confirm) {
       Alert.alert('Validation', 'New passwords do not match.'); return;
     }
+
     setSaving(true);
     try {
-      // TODO: wire to Supabase auth.updateUser({ password: next })
-      await new Promise((r) => setTimeout(r, 800));
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user?.email) throw new Error("No active session found.");
+
+      // Re-authenticate for security
+      const { error: authError } = await supabase.auth.signInWithPassword({
+        email: user.email,
+        password: current,
+      });
+      if (authError) throw new Error("Current password is incorrect.");
+
+      // Perform update
+      const { error: updateError } = await supabase.auth.updateUser({ password: next });
+      if (updateError) throw updateError;
+
       Alert.alert('Success', 'Your password has been updated.', [
         { text: 'OK', onPress: () => navigation.goBack() },
       ]);
-    } catch {
-      Alert.alert('Error', 'Could not update password. Please try again.');
+    } catch (error: any) {
+      Alert.alert('Error', error.message || 'Could not update password.');
     } finally {
       setSaving(false);
     }
@@ -63,12 +76,8 @@ export default function BuyerChangePasswordScreen() {
   };
 
   const renderField = (
-    label: string,
-    value: string,
-    onChange: (v: string) => void,
-    field: Field,
-    placeholder: string,
-    isLast = false,
+    label: string, value: string, onChange: (v: string) => void,
+    field: Field, placeholder: string, isLast = false,
   ) => (
     <View key={field} style={[s.fieldWrap, !isLast && s.fieldBorder]}>
       <Text style={s.fieldLabel}>{label}</Text>
@@ -85,11 +94,7 @@ export default function BuyerChangePasswordScreen() {
           returnKeyType={isLast ? 'done' : 'next'}
           onSubmitEditing={isLast ? handleSave : undefined}
         />
-        <Pressable
-          onPress={() => toggle(field)}
-          style={({ pressed }) => [s.eyeBtn, pressed && { opacity: 0.5 }]}
-          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-        >
+        <Pressable onPress={() => toggle(field)} style={s.eyeBtn}>
           <Text style={s.eyeText}>{visible[field] ? 'Hide' : 'Show'}</Text>
         </Pressable>
       </View>
@@ -101,57 +106,34 @@ export default function BuyerChangePasswordScreen() {
       style={s.root}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
+      <SafeAreaView style={{ backgroundColor: '#111827' }} />
       <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-        <ScrollView
-          keyboardShouldPersistTaps="handled"
-          showsVerticalScrollIndicator={false}
-        >
-
-          {/* ── Header ── */}
+        <ScrollView keyboardShouldPersistTaps="handled">
           <View style={s.header}>
-            <Pressable
-              style={({ pressed }) => [s.backBtn, pressed && s.backBtnPressed]}
-              onPress={handleCancel}
-            >
+            <Pressable style={s.backBtn} onPress={handleCancel}>
               <Text style={s.backBtnText}>‹</Text>
             </Pressable>
             <Text style={s.headerTitle}>Change Password</Text>
             <View style={{ width: 40 }} />
           </View>
 
-          {/* ── Section Label ── */}
           <Text style={s.sectionLabel}>Security</Text>
-
-          {/* ── Form Card ── */}
           <View style={s.card}>
             {renderField('Current Password', current, setCurrent, 'current', 'Enter current password')}
-            {renderField('New Password',     next,    setNext,    'new',     'At least 8 characters')}
+            {renderField('New Password', next, setNext, 'new', 'At least 8 characters')}
             {renderField('Confirm Password', confirm, setConfirm, 'confirm', 'Re-enter new password', true)}
           </View>
+          <Text style={s.hint}>Use a strong password with letters and numbers.</Text>
 
-          <Text style={s.hint}>
-            Use a strong password with a mix of letters, numbers, and symbols.
-          </Text>
-
-          {/* ── Save Button ── */}
           <View style={s.buttonWrap}>
             <Pressable
-              style={({ pressed }) => [
-                s.saveBtn,
-                (!isDirty || saving) && s.saveBtnDisabled,
-                pressed && isDirty && s.saveBtnPressed,
-              ]}
+              style={[s.saveBtn, (!isDirty || saving) && s.saveBtnDisabled]}
               onPress={handleSave}
               disabled={!isDirty || saving}
             >
-              {saving
-                ? <ActivityIndicator color="#FFFFFF" />
-                : <Text style={s.saveBtnText}>Save Changes</Text>
-              }
+              {saving ? <ActivityIndicator color="#FFF" /> : <Text style={s.saveBtnText}>Save Changes</Text>}
             </Pressable>
           </View>
-
-          <View style={{ height: 40 }} />
         </ScrollView>
       </TouchableWithoutFeedback>
     </KeyboardAvoidingView>
@@ -159,135 +141,23 @@ export default function BuyerChangePasswordScreen() {
 }
 
 const s = StyleSheet.create({
-  root: {
-    flex: 1,
-    backgroundColor: '#F5F5F5',
-  },
-
-  /* ── Header ── */
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: '#111827',
-    paddingTop: 52,
-    paddingBottom: 16,
-    paddingHorizontal: 16,
-  },
-  backBtn: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    backgroundColor: '#1F2937',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  backBtnPressed: {
-    opacity: 0.6,
-  },
-  backBtnText: {
-    fontSize: 24,
-    color: '#FFFFFF',
-    lineHeight: 28,
-  },
-  headerTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#FFFFFF',
-    letterSpacing: 0.3,
-  },
-
-  /* ── Section Label ── */
-  sectionLabel: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#6B7280',
-    letterSpacing: 1.4,
-    textTransform: 'uppercase',
-    marginTop: 24,
-    marginBottom: 8,
-    marginHorizontal: 16,
-  },
-
-  /* ── Form Card ── */
-  card: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 14,
-    marginHorizontal: 16,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    overflow: 'hidden',
-  },
-  fieldWrap: {
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-  },
-  fieldBorder: {
-    borderBottomWidth: 1,
-    borderBottomColor: '#F3F4F6',
-  },
-  fieldLabel: {
-    fontSize: 10,
-    fontWeight: '800',
-    color: '#9CA3AF',
-    letterSpacing: 1.2,
-    textTransform: 'uppercase',
-    marginBottom: 8,
-  },
-  inputRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderBottomWidth: 1,
-    borderBottomColor: '#F3F4F6',
-  },
-  input: {
-    flex: 1,
-    fontSize: 14,
-    fontWeight: '500',
-    color: '#111827',
-    paddingVertical: 6,
-    minHeight: 36,
-  },
-  eyeBtn: {
-    paddingLeft: 8,
-  },
-  eyeText: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#6B7280',
-  },
-
-  /* ── Hint ── */
-  hint: {
-    fontSize: 12,
-    color: '#9CA3AF',
-    marginHorizontal: 20,
-    marginTop: 10,
-    lineHeight: 18,
-  },
-
-  /* ── Save Button ── */
-  buttonWrap: {
-    paddingHorizontal: 16,
-    marginTop: 20,
-  },
-  saveBtn: {
-    backgroundColor: '#111827',
-    borderRadius: 14,
-    height: 52,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  saveBtnPressed: {
-    opacity: 0.85,
-  },
-  saveBtnDisabled: {
-    backgroundColor: '#D1D5DB',
-  },
-  saveBtnText: {
-    color: '#FFFFFF',
-    fontSize: 15,
-    fontWeight: '700',
-    letterSpacing: 0.3,
-  },
+  root: { flex: 1, backgroundColor: '#F5F5F5' },
+  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: '#111827', paddingBottom: 16, paddingHorizontal: 16 },
+  backBtn: { width: 38, height: 38, borderRadius: 19, backgroundColor: '#1F2937', alignItems: 'center', justifyContent: 'center' },
+  backBtnText: { fontSize: 24, color: '#FFFFFF', lineHeight: 28 },
+  headerTitle: { fontSize: 16, fontWeight: '700', color: '#FFFFFF' },
+  sectionLabel: { fontSize: 11, fontWeight: '700', color: '#6B7280', textTransform: 'uppercase', marginTop: 24, marginBottom: 8, marginHorizontal: 16 },
+  card: { backgroundColor: '#FFFFFF', borderRadius: 14, marginHorizontal: 16, borderWidth: 1, borderColor: '#E5E7EB', overflow: 'hidden' },
+  fieldWrap: { paddingHorizontal: 16, paddingVertical: 14 },
+  fieldBorder: { borderBottomWidth: 1, borderBottomColor: '#F3F4F6' },
+  fieldLabel: { fontSize: 10, fontWeight: '800', color: '#9CA3AF', textTransform: 'uppercase', marginBottom: 8 },
+  inputRow: { flexDirection: 'row', alignItems: 'center' },
+  input: { flex: 1, fontSize: 14, fontWeight: '500', color: '#111827', minHeight: 36 },
+  eyeBtn: { paddingLeft: 8 },
+  eyeText: { fontSize: 13, fontWeight: '600', color: '#6B7280' },
+  hint: { fontSize: 12, color: '#9CA3AF', marginHorizontal: 20, marginTop: 10 },
+  buttonWrap: { paddingHorizontal: 16, marginTop: 20 },
+  saveBtn: { backgroundColor: '#111827', borderRadius: 14, height: 52, alignItems: 'center', justifyContent: 'center' },
+  saveBtnDisabled: { backgroundColor: '#D1D5DB' },
+  saveBtnText: { color: '#FFFFFF', fontSize: 15, fontWeight: '700' },
 });

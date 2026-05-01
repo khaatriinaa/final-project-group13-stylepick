@@ -337,20 +337,20 @@ function ProductCard({ item, onNavigate, onHeartPress, onAddToCart, isWishlisted
           <Text style={styles.productName} numberOfLines={2}>{item.name}</Text>
           <View style={styles.priceRow}>
             <Text style={styles.productPrice}>₱{item.price.toLocaleString()}</Text>
-            {showSale && item.comparePrice != null && (
+            {showSale && item.comparePrice != null ? (
               <>
                 <Text style={styles.comparePrice}>₱{item.comparePrice.toLocaleString()}</Text>
                 <Text style={styles.discountPercent}>-{discount}%</Text>
               </>
-            )}
+            ) : null}
           </View>
           <View style={[styles.productFooter, { minHeight: 18 }]}>
             {isLowStock ? (
               <Text style={[styles.soldLabel, { color: '#F59E0B' }]}>Only {item.stock} left</Text>
             ) : (
-              item.stock > 0 && item.stock <= 20 && (
-                <Text style={styles.soldLabel}>{item.stock} left</Text>
-              )
+              item.stock > 0 && item.stock <= 20
+                ? <Text style={styles.soldLabel}>{item.stock} left</Text>
+                : null
             )}
           </View>
         </View>
@@ -636,10 +636,11 @@ export default function BuyerHomeScreen({ navigation }: BuyerHomeScreenProps) {
 
       <View style={styles.statusRow}>
         <Text style={styles.statusCount}>
-          Showing <Text style={styles.statusCountBold}>{filtered.length} items</Text>
-          {activeCategory !== 'All' && (
-            <Text style={styles.statusCountBold}> in {activeCategory}</Text>
-          )}
+          {'Showing '}
+          <Text style={styles.statusCountBold}>{filtered.length} items</Text>
+          {activeCategory !== 'All'
+            ? <Text style={styles.statusCountBold}>{` in ${activeCategory}`}</Text>
+            : null}
         </Text>
         <Pressable style={styles.sortBtn} onPress={() => setSortOpen(true)}>
           <SortIcon size={12} color={C.textSecond} />

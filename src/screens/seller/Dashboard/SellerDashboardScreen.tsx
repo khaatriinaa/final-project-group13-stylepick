@@ -224,6 +224,7 @@ export default function SellerDashboardScreen({ navigation }: SellerDashboardScr
   const chartConfig     = getChartConfig(salesPeriod, orders);
   const periodIncome    = chartConfig.revenue.reduce((s, v) => s + v, 0);
   const periodDelivered = periodOrders.filter((o) => o.status === 'delivered').length;
+  const pendingCount    = orders.filter((o) => o.status === 'pending').length;
 
   const filteredOrders = (() => {
     const status = STATUS_MAP[orderFilter];
@@ -256,7 +257,6 @@ export default function SellerDashboardScreen({ navigation }: SellerDashboardScr
     : '?';
 
   return (
-    // ✅ Plain View — no TouchableWithoutFeedback intercepting scroll gestures
     <View style={styles.container}>
 
       {/* ─── Top Bar ─────────────────────────────────────────── */}
@@ -285,15 +285,16 @@ export default function SellerDashboardScreen({ navigation }: SellerDashboardScr
           onPress={() => stackNav.navigate('SellerNotifications' as any)}
           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
         >
-          <BellIcon size={15} color="rgba(255,255,255,0.75)" />
-          <Text style={styles.notifBtnText}>Notifications</Text>
-          {stats.pendingOrders > 0 && (
-            <View style={styles.notifCountBadge}>
-              <Text style={styles.notifCountBadgeText}>
-                {stats.pendingOrders > 99 ? '99+' : stats.pendingOrders}
-              </Text>
-            </View>
-          )}
+          <View style={{ position: 'relative' }}>
+            <BellIcon size={15} color="rgba(255,255,255,0.75)" />
+            {pendingCount > 0 && (
+              <View style={styles.notifCountBadge}>
+                <Text style={styles.notifCountBadgeText}>
+                  {pendingCount > 99 ? '99+' : pendingCount}
+                </Text>
+              </View>
+            )}
+          </View>
         </Pressable>
       </View>
 
@@ -303,10 +304,10 @@ export default function SellerDashboardScreen({ navigation }: SellerDashboardScr
           <Text style={styles.kpiLabel}>Total Orders</Text>
           <Text style={styles.kpiValue}>{stats.totalOrders}</Text>
         </View>
-        <View style={styles.kpiItem}>
-          <Text style={styles.kpiLabel}>Pending</Text>
-          <Text style={[styles.kpiValue, { color: C.amber }]}>{stats.pendingOrders}</Text>
-        </View>
+          <View style={styles.kpiItem}>
+            <Text style={styles.kpiLabel}>Pending</Text>
+            <Text style={[styles.kpiValue, { color: C.amber }]}>{pendingCount}</Text>
+          </View>
         <View style={[styles.kpiItem, styles.kpiItemLast]}>
           <Text style={styles.kpiLabel}>Revenue</Text>
           <Text style={[styles.kpiValue, { color: C.green }]}>
@@ -322,7 +323,6 @@ export default function SellerDashboardScreen({ navigation }: SellerDashboardScr
         <ScrollView
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
-          // ✅ Close dropdowns when user starts scrolling instead of via outer tap
           onScrollBeginDrag={closeDropdowns}
           refreshControl={
             <RefreshControl
@@ -335,7 +335,7 @@ export default function SellerDashboardScreen({ navigation }: SellerDashboardScr
         >
           <View style={styles.body}>
 
-            {/* ─── Sales Statistics ─────────────────────────────────── */}
+            {/* ─── Sales Statistics ─────────────────────────────── */}
             <View style={[styles.card, { zIndex: salesDropdownOpen ? 20 : 1, marginTop: 18 }]}>
               <View style={styles.cardHeader}>
                 <Text style={styles.cardTitle}>Sales Statistics</Text>
@@ -347,7 +347,7 @@ export default function SellerDashboardScreen({ navigation }: SellerDashboardScr
                     <Text style={styles.periodBtnText}>{salesPeriod}</Text>
                     <Text style={styles.periodBtnArrow}>{salesDropdownOpen ? '▴' : '▾'}</Text>
                   </Pressable>
-                  {salesDropdownOpen && (
+                  {salesDropdownOpen ? (
                     <View style={styles.dropdown}>
                       {SALES_PERIODS.map((p) => (
                         <Pressable
@@ -355,12 +355,16 @@ export default function SellerDashboardScreen({ navigation }: SellerDashboardScr
                           style={[styles.dropdownItem, salesPeriod === p && styles.dropdownItemActive]}
                           onPress={() => { setSalesPeriod(p); setSalesDropdownOpen(false); }}
                         >
-                          <Text style={[styles.dropdownItemText, salesPeriod === p && styles.dropdownItemTextActive]}>{p}</Text>
-                          {salesPeriod === p && <Text style={{ fontSize: 12, color: C.violet }}>✓</Text>}
+                          <Text style={[styles.dropdownItemText, salesPeriod === p && styles.dropdownItemTextActive]}>
+                            {p}
+                          </Text>
+                          {salesPeriod === p ? (
+                            <Text style={{ fontSize: 12, color: C.violet }}>✓</Text>
+                          ) : null}
                         </Pressable>
                       ))}
                     </View>
-                  )}
+                  ) : null}
                 </View>
               </View>
 
@@ -405,7 +409,7 @@ export default function SellerDashboardScreen({ navigation }: SellerDashboardScr
               <View style={styles.chartSummary}>
                 <View style={styles.chartSummaryItem}>
                   <Text style={styles.chartSummaryValue}>
-                    ₱{periodIncome >= 1000 ? `${(periodIncome / 1000).toFixed(1)}k` : periodIncome}
+                    {`₱${periodIncome >= 1000 ? `${(periodIncome / 1000).toFixed(1)}k` : periodIncome}`}
                   </Text>
                   <Text style={styles.chartSummaryLabel}>Income</Text>
                 </View>
@@ -420,7 +424,7 @@ export default function SellerDashboardScreen({ navigation }: SellerDashboardScr
               </View>
             </View>
 
-            {/* ─── Top 10 Trending Products ─────────────────────────── */}
+            {/* ─── Top 10 Trending Products ─────────────────────── */}
             <View style={styles.sectionHeader}>
               <Text style={styles.sectionTitle}>Top 10 Trending Products</Text>
               <Pressable onPress={() => (navigation as any).navigate('Products')}>
@@ -456,7 +460,7 @@ export default function SellerDashboardScreen({ navigation }: SellerDashboardScr
               </ScrollView>
             )}
 
-            {/* ─── Top 5 Spending Customers ─────────────────────────── */}
+            {/* ─── Top 5 Spending Customers ─────────────────────── */}
             <View style={styles.sectionHeader}>
               <Text style={styles.sectionTitle}>Top 5 Spending Customers</Text>
             </View>
@@ -470,26 +474,35 @@ export default function SellerDashboardScreen({ navigation }: SellerDashboardScr
             ) : (
               <View style={styles.card}>
                 {topBuyers.map((b, i) => (
-                  <View key={b.id} style={[styles.buyerRow, i < topBuyers.length - 1 && styles.buyerRowBorder]}>
-                    <View style={[styles.buyerRank, i === 0 && styles.buyerRankGold]}>
-                      <Text style={[styles.buyerRankText, i === 0 && { color: C.amber }]}>{i + 1}</Text>
+                  <View
+                    key={b.id}
+                    style={[styles.buyerRow, i < topBuyers.length - 1 ? styles.buyerRowBorder : null]}
+                  >
+                    <View style={[styles.buyerRank, i === 0 ? styles.buyerRankGold : null]}>
+                      <Text style={[styles.buyerRankText, i === 0 ? { color: C.amber } : null]}>
+                        {i + 1}
+                      </Text>
                     </View>
                     <View style={styles.buyerAvatar}>
                       <Text style={styles.buyerAvatarText}>{b.id.slice(0, 2).toUpperCase()}</Text>
                     </View>
                     <View style={styles.buyerInfo}>
-                      <Text style={styles.buyerName}>Customer #{b.id.slice(0, 6).toUpperCase()}</Text>
-                      <Text style={styles.buyerOrders}>{b.orderCount} order{b.orderCount !== 1 ? 's' : ''}</Text>
+                      <Text style={styles.buyerName}>
+                        {`Customer #${b.id.slice(0, 6).toUpperCase()}`}
+                      </Text>
+                      <Text style={styles.buyerOrders}>
+                        {`${b.orderCount} order${b.orderCount !== 1 ? 's' : ''}`}
+                      </Text>
                     </View>
                     <Text style={styles.buyerSpend}>
-                      ₱{b.spend >= 1000 ? `${(b.spend / 1000).toFixed(1)}k` : b.spend}
+                      {`₱${b.spend >= 1000 ? `${(b.spend / 1000).toFixed(1)}k` : b.spend}`}
                     </Text>
                   </View>
                 ))}
               </View>
             )}
 
-            {/* ─── Recent Orders ────────────────────────────────────── */}
+            {/* ─── Recent Orders ────────────────────────────────── */}
             <View style={[styles.sectionHeader, { zIndex: orderDropdownOpen ? 20 : 1 }]}>
               <Text style={styles.sectionTitle}>Recent Orders</Text>
               <View style={{ position: 'relative' }}>
@@ -497,10 +510,12 @@ export default function SellerDashboardScreen({ navigation }: SellerDashboardScr
                   style={styles.filterBtn}
                   onPress={() => { setSalesDropdownOpen(false); setOrderDropdownOpen((v) => !v); }}
                 >
-                  <Text style={styles.filterBtnText}>{orderFilter === 'All' ? 'All Status' : orderFilter}</Text>
+                  <Text style={styles.filterBtnText}>
+                    {orderFilter === 'All' ? 'All Status' : orderFilter}
+                  </Text>
                   <Text style={styles.filterBtnArrow}>{orderDropdownOpen ? '▴' : '▾'}</Text>
                 </Pressable>
-                {orderDropdownOpen && (
+                {orderDropdownOpen ? (
                   <View style={[styles.dropdown, styles.dropdownRight]}>
                     {ORDER_FILTERS.map((f) => (
                       <Pressable
@@ -508,12 +523,16 @@ export default function SellerDashboardScreen({ navigation }: SellerDashboardScr
                         style={[styles.dropdownItem, orderFilter === f && styles.dropdownItemActive]}
                         onPress={() => { setOrderFilter(f); setOrderDropdownOpen(false); }}
                       >
-                        <Text style={[styles.dropdownItemText, orderFilter === f && styles.dropdownItemTextActive]}>{f}</Text>
-                        {orderFilter === f && <Text style={{ fontSize: 12, color: C.violet }}>✓</Text>}
+                        <Text style={[styles.dropdownItemText, orderFilter === f && styles.dropdownItemTextActive]}>
+                          {f}
+                        </Text>
+                        {orderFilter === f ? (
+                          <Text style={{ fontSize: 12, color: C.violet }}>✓</Text>
+                        ) : null}
                       </Pressable>
                     ))}
                   </View>
-                )}
+                ) : null}
               </View>
             </View>
 
@@ -537,13 +556,17 @@ export default function SellerDashboardScreen({ navigation }: SellerDashboardScr
                       key={order.id}
                       style={({ pressed }) => [
                         styles.orderRow,
-                        i < filteredOrders.length - 1 && styles.orderRowBorder,
-                        pressed && { opacity: 0.82 },
+                        i < filteredOrders.length - 1 ? styles.orderRowBorder : null,
+                        pressed ? { opacity: 0.82 } : null,
                       ]}
                     >
                       <View style={styles.orderThumb}>
                         {firstItem?.product?.images?.[0] ? (
-                          <Image source={{ uri: firstItem.product.images[0] }} style={styles.orderThumbImage} resizeMode="cover" />
+                          <Image
+                            source={{ uri: firstItem.product.images[0] }}
+                            style={styles.orderThumbImage}
+                            resizeMode="cover"
+                          />
                         ) : (
                           <Text style={{ fontSize: 20 }}>📦</Text>
                         )}
@@ -553,7 +576,7 @@ export default function SellerDashboardScreen({ navigation }: SellerDashboardScr
                           {firstItem?.product?.name ?? `Order #${order.id.slice(0, 6).toUpperCase()}`}
                         </Text>
                         <Text style={styles.orderMeta}>
-                          #{order.id.slice(0, 6).toUpperCase()} · {order.shippingAddress?.split(',')[0]}
+                          {`#${order.id.slice(0, 6).toUpperCase()} · ${order.shippingAddress?.split(',')[0] ?? ''}`}
                         </Text>
                         <View style={[styles.statusBadge, { backgroundColor: color.bg }]}>
                           <Text style={[styles.statusBadgeText, { color: color.text }]}>
@@ -561,7 +584,9 @@ export default function SellerDashboardScreen({ navigation }: SellerDashboardScr
                           </Text>
                         </View>
                       </View>
-                      <Text style={styles.orderAmount}>₱{order.totalAmount.toLocaleString()}</Text>
+                      <Text style={styles.orderAmount}>
+                        {`₱${order.totalAmount.toLocaleString()}`}
+                      </Text>
                     </Pressable>
                   );
                 })}

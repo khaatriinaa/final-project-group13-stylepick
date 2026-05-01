@@ -116,15 +116,13 @@ export const styles = StyleSheet.create({
 
   // ─── Notification button ──────────────────────────────────────────────────
   notifBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
     backgroundColor: 'rgba(255,255,255,0.07)',
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.12)',
     borderRadius: 8,
     paddingHorizontal: 12,
     paddingVertical: 8,
+    // removed flexDirection/gap — no longer needed
   },
   notifBtnText: {
     fontSize: 12,
@@ -133,18 +131,24 @@ export const styles = StyleSheet.create({
     letterSpacing: 0.2,
   },
   notifCountBadge: {
+    position:        'absolute',
+    top:             -6,
+    right:           -6,
+    minWidth:        16,
+    height:          16,
+    borderRadius:    8,
     backgroundColor: C.red,
-    borderRadius: 4,
-    paddingHorizontal: 6,
-    paddingVertical: 1,
-    minWidth: 18,
-    alignItems: 'center',
+    alignItems:      'center',
+    justifyContent:  'center',
+    paddingHorizontal: 3,
+    borderWidth:     1.5,
+    borderColor:     C.ink,   // punches out against the dark topbar
   },
   notifCountBadgeText: {
-    color: C.white,
-    fontSize: 10,
+    color:      C.white,
+    fontSize:   9,
     fontWeight: '700',
-    letterSpacing: 0.2,
+    lineHeight: 11,
   },
 
   // ─── KPI Strip ────────────────────────────────────────────────────────────
