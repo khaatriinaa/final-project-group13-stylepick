@@ -32,7 +32,7 @@ export const addFavoriteToSupabase = async (
   buyerName:  string | null,
   product:    Product,
 ): Promise<void> => {
-  const { error } = await supabase.from('favorites').upsert(
+  const { error } = await supabase.from('favorites').insert(
     {
       buyer_id:    buyerId,
       buyer_email: buyerEmail,
@@ -40,10 +40,12 @@ export const addFavoriteToSupabase = async (
       product_id:  product.id,
       product:     product,
     },
-    { onConflict: 'buyer_id,product_id' },
   );
 
-  if (error) throw new Error(`[favoritesService] addFavorite: ${error.message}`);
+  // Ignore unique-constraint violations (duplicate favorite) — not an error
+  if (error && !error.message.includes('duplicate') && error.code !== '23505') {
+    throw new Error(`[favoritesService] addFavorite: ${error.message}`);
+  }
 };
 
 // ─── Remove a favorite ────────────────────────────────────────────────────────

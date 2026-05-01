@@ -1,9 +1,8 @@
 // src/screens/buyer/Notifications/BuyerNotificationsScreen.tsx
-
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useRef, useEffect } from 'react';
 import {
   View, Text, FlatList, Pressable,
-  RefreshControl, Alert, Platform,
+  RefreshControl, Alert, AppState, AppStateStatus,
 } from 'react-native';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -16,6 +15,8 @@ import {
 } from '../../../services/notificationService';
 import { Notification } from '../../../types';
 import { styles } from './BuyerNotificationsScreen.styles';
+
+const POLL_INTERVAL_MS = 5_000; // refresh every 5 s while screen is focused
 
 function timeAgo(dateStr: string): string {
   const diff = Date.now() - new Date(dateStr).getTime();
@@ -45,24 +46,83 @@ export default function BuyerNotificationsScreen() {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [refreshing, setRefreshing] = useState(false);
 
+  // ── Refs that survive re-renders without causing them ──────────────────
+  const intervalRef  = useRef<ReturnType<typeof setInterval> | null>(null);
+  const isFocusedRef = useRef(false);
+  const appStateRef  = useRef<AppStateStatus>(AppState.currentState);
+
+  // ── Core fetch (silent — no loading spinner) ───────────────────────────
   const fetchNotifs = useCallback(async () => {
     if (!user?.id) return;
-    setNotifications(await getNotifications(user.id));
+    const fresh = await getNotifications(user.id);
+
+    // Only update state when data actually changed — avoids flicker on idle ticks
+    setNotifications((prev) => {
+      const prevJson = JSON.stringify(prev);
+      const nextJson = JSON.stringify(fresh);
+      return prevJson === nextJson ? prev : fresh;
+    });
   }, [user?.id]);
 
-  useFocusEffect(useCallback(() => { fetchNotifs(); }, [fetchNotifs]));
+  // ── Start / stop polling ───────────────────────────────────────────────
+  const startPolling = useCallback(() => {
+    if (intervalRef.current) return; // already running
+    intervalRef.current = setInterval(fetchNotifs, POLL_INTERVAL_MS);
+  }, [fetchNotifs]);
 
+  const stopPolling = useCallback(() => {
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current);
+      intervalRef.current = null;
+    }
+  }, []);
+
+  // ── Pause polling when app goes to background ──────────────────────────
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', (next: AppStateStatus) => {
+      const isActive = next === 'active';
+      appStateRef.current = next;
+
+      if (isActive && isFocusedRef.current) {
+        fetchNotifs();   // immediate refresh on foreground
+        startPolling();
+      } else if (!isActive) {
+        stopPolling();
+      }
+    });
+
+    return () => sub.remove();
+  }, [fetchNotifs, startPolling, stopPolling]);
+
+  // ── Tie polling lifecycle to screen focus ──────────────────────────────
+  useFocusEffect(
+    useCallback(() => {
+      isFocusedRef.current = true;
+      fetchNotifs();                                // immediate fetch on focus
+      if (AppState.currentState === 'active') {
+        startPolling();
+      }
+
+      return () => {
+        isFocusedRef.current = false;
+        stopPolling();                              // stop when leaving screen
+      };
+    }, [fetchNotifs, startPolling, stopPolling]),
+  );
+
+  // ── Pull-to-refresh ────────────────────────────────────────────────────
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);
     await fetchNotifs();
     setRefreshing(false);
   }, [fetchNotifs]);
 
+  // ── Actions ────────────────────────────────────────────────────────────
   const handlePress = async (notif: Notification) => {
     if (!notif.isRead) {
       await markAsRead(notif.id);
       setNotifications((prev) =>
-        prev.map((n) => n.id === notif.id ? { ...n, isRead: true } : n)
+        prev.map((n) => (n.id === notif.id ? { ...n, isRead: true } : n)),
       );
     }
   };
@@ -88,6 +148,7 @@ export default function BuyerNotificationsScreen() {
 
   const unreadCount = notifications.filter((n) => !n.isRead).length;
 
+  // ── Render item ────────────────────────────────────────────────────────
   const renderItem = ({ item }: { item: Notification }) => {
     const meta = getMeta((item as any).type);
     return (
@@ -139,10 +200,11 @@ export default function BuyerNotificationsScreen() {
     );
   };
 
+  // ── UI ─────────────────────────────────────────────────────────────────
   return (
     <View style={styles.container}>
 
-      {/* ── Header ── */}
+      {/* Header */}
       <View style={styles.header}>
         <Pressable
           style={({ pressed }) => [styles.backBtn, pressed && { opacity: 0.6 }]}
@@ -175,7 +237,7 @@ export default function BuyerNotificationsScreen() {
         )}
       </View>
 
-      {/* ── Summary bar ── */}
+      {/* Summary bar */}
       {notifications.length > 0 && (
         <View style={styles.summaryBar}>
           <Text style={styles.summaryText}>

@@ -1,129 +1,429 @@
 // src/screens/buyer/Favorites/FavoritesScreen.styles.ts
-import { StyleSheet, Dimensions } from 'react-native';
-
-const { width } = Dimensions.get('window');
-const CARD_WIDTH = (width - 36) / 2;
+import { StyleSheet } from 'react-native';
 
 export const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F4F4F8' },
+  container: { flex: 1, backgroundColor: '#F5F5F5' },
 
-  // ── Header ──────────────────────────────────────────────
+  // ── Header ──────────────────────────────────────────────────────────────────
   header: {
     backgroundColor: '#FFFFFF',
-    paddingTop: 52, paddingBottom: 14, paddingHorizontal: 16,
-    flexDirection: 'row', alignItems: 'center',
-    borderBottomWidth: 1, borderBottomColor: '#EBEBEB',
-    shadowColor: '#000', shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04, shadowRadius: 4, elevation: 2,
+    paddingTop: 52,
+    borderBottomWidth: 0.5,
+    borderBottomColor: '#E5E7EB',
+  },
+  headerTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingBottom: 12,
+    gap: 10,
   },
   backBtn: {
-    width: 36, height: 36, borderRadius: 18,
-    backgroundColor: '#F3F4F6',
-    alignItems: 'center', justifyContent: 'center',
-    marginRight: 10,
-  },
-  backIcon: { fontSize: 24, color: '#374151', fontWeight: '300', lineHeight: 28 },
-  title: { fontSize: 20, fontWeight: '800', color: '#111827', flex: 1, letterSpacing: -0.3 },
-  clearBtn: {
-    paddingVertical: 4, paddingHorizontal: 10,
-    borderRadius: 6, backgroundColor: '#FEF2F2',
-  },
-  clearBtnText: { fontSize: 12, color: '#EF4444', fontWeight: '700' },
-
-  // ── Grid ────────────────────────────────────────────────
-  list: { padding: 12, flexGrow: 1 },
-  row: { justifyContent: 'space-between', marginBottom: 12 },
-
-  // ── Card ────────────────────────────────────────────────
-  //
-  // FIX: overflow is intentionally NOT set to 'hidden' here.
-  // overflow:hidden on a card clips absolutely-positioned children (like the
-  // heart button) on Android — both visually and for touch hit-testing.
-  // Each child section handles its own clipping/radius instead.
-  card: {
-    width: CARD_WIDTH,
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
     backgroundColor: '#FFFFFF',
-    borderRadius: 14,
-    // overflow:hidden removed — see note above
-    shadowColor: '#000', shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06, shadowRadius: 6, elevation: 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
+  },
+  backIcon: { fontSize: 22, color: '#374151', fontWeight: '300', lineHeight: 26 },
+  headerTitle: { flex: 1, fontSize: 18, fontWeight: '700', color: '#111827' },
+  headerCount: { fontSize: 18, fontWeight: '700', color: '#111827' },
+  headerRight: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  clearBtn: {
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 6,
+    backgroundColor: '#FEF2F2',
+  },
+  clearBtnText: { fontSize: 12, fontWeight: '600', color: '#EF4444' },
+
+  // ── Radio ────────────────────────────────────────────────────────────────────
+  radioOuter: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    borderWidth: 1.5,
+    borderColor: '#D1D5DB',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FFFFFF',
+  },
+  radioInner: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: '#111827',
   },
 
-  // Image wrapper clips the image to the card's top rounded corners.
-  // overflow:hidden lives here, scoped only to the image area.
-  imageWrapper: {
-    width: '100%',
-    height: CARD_WIDTH,
-    backgroundColor: '#F3F4F6',
+  // ── Swipe ────────────────────────────────────────────────────────────────────
+  swipeWrapper: {
     position: 'relative',
-    borderTopLeftRadius: 14,
-    borderTopRightRadius: 14,
     overflow: 'hidden',
+    backgroundColor: '#111827',
   },
-  image: { width: '100%', height: '100%' },
-  imagePlaceholder: {
-    width: '100%', height: '100%',
-    alignItems: 'center', justifyContent: 'center',
+  deleteBackground: {
+    position: 'absolute',
+    right: 0,
+    top: 0,
+    bottom: 0,
+    width: 80,
+    backgroundColor: '#EF4444',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  imagePlaceholderIcon: { fontSize: 36, color: '#D1D5DB' },
+  deleteAction: { alignItems: 'center', justifyContent: 'center', gap: 4 },
+  deleteLabel: { fontSize: 11, color: '#FFFFFF', fontWeight: '600' },
 
-  // Heart remove button — BLACK background with white SVG heart, matching the
-  // favorited state from BuyerHomeScreen. elevation > card so Android routes
-  // touches to it correctly.
-  heartBtn: {
-    position: 'absolute', top: 8, right: 8,
-    width: 34, height: 34, borderRadius: 17,
-    // Black background — matches the "favorited" heart on the Home screen
-    backgroundColor: '#0F0E17',
-    alignItems: 'center', justifyContent: 'center',
-    zIndex: 20,
-    elevation: 20,
-    shadowColor: '#000', shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.35, shadowRadius: 4,
+  // ── Favorite Item ────────────────────────────────────────────────────────────
+  favoriteItem: {
+    backgroundColor: '#FFFFFF',
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    gap: 10,
+    borderBottomWidth: 0.5,
+    borderBottomColor: '#F3F4F6',
   },
-  heartIcon: { fontSize: 16 },
 
-  // Sold-out overlay on the product image
-  soldOutOverlay: {
-    ...StyleSheet.absoluteFillObject,
+  // Image
+  itemImage: {
+    width: 80,
+    height: 90,
+    borderRadius: 6,
+    backgroundColor: '#F3F4F6',
+    borderWidth: 0.5,
+    borderColor: '#E5E7EB',
+    overflow: 'hidden',
+    position: 'relative',
+  },
+  itemImageActual: { width: '100%', height: '100%' },
+  itemImagePlaceholder: {
+    width: '100%',
+    height: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  itemImageIcon: { fontSize: 22, color: '#D1D5DB' },
+
+  soldOutBadge: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
     backgroundColor: 'rgba(0,0,0,0.45)',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  soldOutText: {
-    color: '#FFFFFF',
-    fontSize: 13,
+  soldOutBadgeText: {
+    fontSize: 9,
     fontWeight: '800',
+    color: '#FFFFFF',
     letterSpacing: 0.5,
     textTransform: 'uppercase',
   },
-
-  // Info
-  info: { padding: 10, paddingBottom: 6 },
-  name: { fontSize: 13, fontWeight: '700', color: '#111827', lineHeight: 18, marginBottom: 4 },
-  price: { fontSize: 15, fontWeight: '800', color: '#E63946', marginBottom: 2 },
-  stock: { fontSize: 11, color: '#9CA3AF' },
-
-  // Add to cart button
-  addBtn: {
-    margin: 10, marginTop: 6,
-    backgroundColor: '#E63946', borderRadius: 8,
-    paddingVertical: 10, alignItems: 'center',
+  dealBadge: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: 'rgba(17,24,39,0.85)',
+    paddingVertical: 2,
+    alignItems: 'center',
   },
-  addBtnPressed: { opacity: 0.85 },
-  addBtnDisabled: { backgroundColor: '#E5E7EB' },
-  addBtnText: { fontSize: 12, fontWeight: '700', color: '#FFFFFF' },
+  dealBadgeText: { fontSize: 8, color: '#FFFFFF', fontWeight: '600' },
 
-  // ── Empty ────────────────────────────────────────────────
-  emptyContainer: {
-    flex: 1, alignItems: 'center', justifyContent: 'center', paddingTop: 100,
+  // Item info
+  itemInfo: {
+    flex: 1,
+    minHeight: 90,
+    justifyContent: 'space-between',
   },
-  emptyIcon: { fontSize: 60, marginBottom: 16 },
-  emptyTitle: { fontSize: 17, fontWeight: '700', color: '#374151', marginBottom: 6 },
-  emptySubtitle: { fontSize: 13, color: '#9CA3AF', textAlign: 'center', lineHeight: 18, marginBottom: 24 },
+
+  // Top row: name + trash
+  itemTopRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    marginBottom: 3,
+  },
+  itemNameWrapper: { flex: 1, paddingRight: 6 },
+  itemName: {
+    fontSize: 13,
+    fontWeight: '500',
+    color: '#111827',
+    lineHeight: 17,
+  },
+  trashBtn: {
+    width: 26,
+    height: 26,
+    borderRadius: 5,
+    backgroundColor: '#F9FAFB',
+    borderWidth: 0.5,
+    borderColor: '#E5E7EB',
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
+  },
+
+  // Category chip
+  variantChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F9FAFB',
+    borderRadius: 4,
+    borderWidth: 0.5,
+    borderColor: '#E5E7EB',
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+    alignSelf: 'flex-start',
+    gap: 4,
+    marginBottom: 4,
+  },
+  variantDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#374151',
+  },
+  variantText: { fontSize: 11, color: '#374151', fontWeight: '500' },
+
+  stockWarning: {
+    fontSize: 10,
+    color: '#F59E0B',
+    fontWeight: '600',
+    marginBottom: 2,
+  },
+
+  // Price + Add-to-cart row
+  priceCartRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 2,
+  },
+  itemPrice: { fontSize: 16, fontWeight: '700', color: '#111827' },
+
+  addCartBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#111827',
+    borderRadius: 6,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+  },
+  addCartBtnPressed: { opacity: 0.85 },
+  addCartBtnDisabled: { backgroundColor: '#E5E7EB' },
+  addCartBtnText: { fontSize: 12, fontWeight: '600', color: '#FFFFFF' },
+
+  // ── List ─────────────────────────────────────────────────────────────────────
+  list: { padding: 0, gap: 0, flexGrow: 1 },
+
+  // ── Empty ────────────────────────────────────────────────────────────────────
+  emptyContainer: { alignItems: 'center', paddingTop: 80, flex: 1, paddingHorizontal: 32 },
+  emptyIconWrap: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: '#F3F4F6',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 16,
+  },
+  emptyTitle: { fontSize: 15, fontWeight: '500', color: '#111827', marginBottom: 6 },
+  emptySubtitle: {
+    fontSize: 13,
+    color: '#9CA3AF',
+    textAlign: 'center',
+    lineHeight: 20,
+    marginBottom: 24,
+  },
   browseBtn: {
-    backgroundColor: '#E63946', borderRadius: 10,
-    paddingVertical: 12, paddingHorizontal: 28,
+    backgroundColor: '#111827',
+    borderRadius: 8,
+    paddingVertical: 12,
+    paddingHorizontal: 28,
   },
-  browseBtnText: { color: '#FFFFFF', fontSize: 14, fontWeight: '700' },
+  browseBtnText: { color: '#FFFFFF', fontSize: 14, fontWeight: '600' },
+
+  // ── Footer ───────────────────────────────────────────────────────────────────
+  footer: {
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    paddingBottom: 28,
+    borderTopWidth: 0.5,
+    borderTopColor: '#E5E7EB',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  footerLeft: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  footerAllLabel: { fontSize: 13, fontWeight: '500', color: '#374151' },
+  footerRight: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+    gap: 12,
+  },
+  footerTotalLabel: { fontSize: 10, color: '#9CA3AF', fontWeight: '500', textAlign: 'right' },
+  footerTotal: { fontSize: 17, fontWeight: '700', color: '#111827', textAlign: 'right' },
+  addToCartBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: '#111827',
+    borderRadius: 6,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+  },
+  addToCartBtnPressed: { opacity: 0.85 },
+  addToCartBtnDisabled: { backgroundColor: '#9CA3AF' },
+  addToCartBtnText: { color: '#FFFFFF', fontSize: 14, fontWeight: '600' },
+
+  // ── Modal ────────────────────────────────────────────────────────────────────
+  modalContainer: { flex: 1, backgroundColor: '#F5F5F5' },
+  modalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingTop: 16,
+    paddingBottom: 12,
+    backgroundColor: '#FFFFFF',
+    borderBottomWidth: 0.5,
+    borderBottomColor: '#E5E7EB',
+  },
+  modalTitle: { fontSize: 17, fontWeight: '700', color: '#111827' },
+  modalCloseBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#F3F4F6',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  modalCloseBtnText: { fontSize: 13, color: '#6B7280', fontWeight: '700' },
+  modalContent: { padding: 16, gap: 12, paddingBottom: 40 },
+
+  modalImageWrapper: {
+    width: '100%',
+    height: 220,
+    borderRadius: 10,
+    overflow: 'hidden',
+    backgroundColor: '#F3F4F6',
+    borderWidth: 0.5,
+    borderColor: '#E5E7EB',
+    position: 'relative',
+  },
+  modalImage: { width: '100%', height: '100%' },
+  modalImagePlaceholder: {
+    width: '100%',
+    height: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#F3F4F6',
+  },
+  modalSoldOutOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  modalSoldOutText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '800',
+    letterSpacing: 1,
+    textTransform: 'uppercase',
+  },
+
+  modalSection: { paddingVertical: 4, gap: 6 },
+  modalProductName: { fontSize: 17, fontWeight: '700', color: '#111827', lineHeight: 23 },
+  modalPriceRow: { flexDirection: 'row', alignItems: 'baseline' },
+  modalPrice: { fontSize: 19, fontWeight: '700', color: '#111827' },
+  modalPriceUnit: { fontSize: 13, color: '#9CA3AF' },
+  modalVariantChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F9FAFB',
+    borderRadius: 4,
+    borderWidth: 0.5,
+    borderColor: '#E5E7EB',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    alignSelf: 'flex-start',
+    gap: 5,
+  },
+  modalVariantText: { fontSize: 12, color: '#374151', fontWeight: '500' },
+
+  modalCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 10,
+    borderWidth: 0.5,
+    borderColor: '#E5E7EB',
+    padding: 14,
+  },
+  modalCardTitle: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#9CA3AF',
+    textTransform: 'uppercase',
+    letterSpacing: 0.8,
+    marginBottom: 10,
+  },
+  modalDetailRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingBottom: 10,
+    marginBottom: 10,
+    borderBottomWidth: 0.5,
+    borderBottomColor: '#F3F4F6',
+  },
+  modalDetailRowLast: { paddingBottom: 0, marginBottom: 0, borderBottomWidth: 0 },
+  modalDetailLabel: { fontSize: 13, color: '#6B7280' },
+  modalDetailValue: { fontSize: 13, fontWeight: '600', color: '#111827' },
+  inStock: { color: '#10B981' },
+  outOfStock: { color: '#EF4444' },
+  modalDescription: { fontSize: 13, color: '#4B5563', lineHeight: 20 },
+
+  // Modal bottom action row
+  modalActionRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginTop: 4,
+  },
+  modalFavBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    borderWidth: 1,
+    borderColor: '#EF4444',
+    borderRadius: 8,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    backgroundColor: '#FEF2F2',
+  },
+  modalFavBtnText: { color: '#EF4444', fontSize: 14, fontWeight: '600' },
+  modalAddCartBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    backgroundColor: '#111827',
+    borderRadius: 8,
+    paddingVertical: 14,
+  },
+  modalAddCartBtnDisabled: { backgroundColor: '#E5E7EB' },
+  modalAddCartBtnText: { color: '#FFFFFF', fontSize: 15, fontWeight: '600' },
 });
