@@ -1,12 +1,13 @@
 // src/screens/buyer/Home/BuyerHomeScreen.tsx
 
-import React, { useState, useCallback, useRef, useMemo } from 'react';
+import React, { useState, useCallback, useRef, useMemo, useEffect } from 'react';
 import {
   View, Text, FlatList, Pressable, RefreshControl,
   TextInput, Image, Animated, Modal, ScrollView,
   NativeSyntheticEvent, NativeScrollEvent, Dimensions,
   TouchableOpacity, Alert, Platform,
 } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import Svg, { Path, Circle } from 'react-native-svg';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -19,6 +20,8 @@ import { useFavorites } from '../../../context/FavoritesContext';
 import { styles, C } from './BuyerHomeScreen.styles';
 
 const { width: SCREEN_W } = Dimensions.get('window');
+
+const LAST_OPEN_KEY = '@buyer_last_open_at';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -136,8 +139,13 @@ function PlusIcon({ size = 18, color = '#fff' }: { size?: number; color?: string
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-const isNewProduct = (p: Product): boolean =>
-  new Date(p.createdAt).getTime() >= Date.now() - 14 * 24 * 60 * 60 * 1000;
+// ── isNewProduct now accepts a `since` timestamp instead of a hardcoded
+//    14-day window. A product is "new" only if it was created after the
+//    buyer's previous app open. Passing null means no products are new.
+const isNewProduct = (p: Product, since: number | null): boolean => {
+  if (since === null) return false;
+  return new Date(p.createdAt).getTime() > since;
+};
 
 const isOnSale = (p: Product): boolean =>
   p.comparePrice != null && p.comparePrice > p.price;
@@ -270,13 +278,14 @@ interface ProductCardProps {
   onHeartPress: (item: Product) => void;
   onAddToCart:  (item: Product) => void;
   isWishlisted: boolean;
+  lastOpenAt:   number | null;
 }
 
-function ProductCard({ item, onNavigate, onHeartPress, onAddToCart, isWishlisted }: ProductCardProps) {
+function ProductCard({ item, onNavigate, onHeartPress, onAddToCart, isWishlisted, lastOpenAt }: ProductCardProps) {
   const isSoldOut  = item.stock <= 0;
   const isLowStock = item.stock > 0 && item.stock <= 5;
   const showSale   = isOnSale(item) && !isSoldOut;
-  const showNew    = isNewProduct(item) && !isSoldOut && !showSale;
+  const showNew    = isNewProduct(item, lastOpenAt) && !isSoldOut && !showSale;
   const discount   = getDiscountPercent(item);
 
   return (
@@ -421,11 +430,30 @@ export default function BuyerHomeScreen({ navigation }: BuyerHomeScreenProps) {
   const [sortOpen, setSortOpen]             = useState(false);
   const [refreshing, setRefreshing]         = useState(false);
   const [searchFocused, setSearchFocused]   = useState(false);
+  // ── Timestamp of the buyer's previous app open. Products created after
+  //    this time are tagged "New". Null until AsyncStorage is read.
+  const [lastOpenAt, setLastOpenAt]         = useState<number | null>(null);
 
   const searchInputRef = useRef<TextInput>(null);
   const listRef        = useRef<FlatList<Product>>(null);
   const gridOffset     = useRef<number>(0);
   const cartScale      = useRef(new Animated.Value(1)).current;
+
+  // ── On mount: read previous open timestamp, then write current time.
+  //    This means "new" = created after the LAST open, not the current open.
+  useEffect(() => {
+    const initLastOpen = async () => {
+      try {
+        const stored = await AsyncStorage.getItem(LAST_OPEN_KEY);
+        const prev   = stored ? parseInt(stored, 10) : null;
+        setLastOpenAt(prev);
+        await AsyncStorage.setItem(LAST_OPEN_KEY, Date.now().toString());
+      } catch (err) {
+        console.warn('Failed to read/write last_open_at:', err);
+      }
+    };
+    initLastOpen();
+  }, []);
 
   const favoriteIds = useMemo(
     () => new Set(favorites.map((f) => f.id)),
@@ -458,7 +486,6 @@ export default function BuyerHomeScreen({ navigation }: BuyerHomeScreenProps) {
     setRefreshing(false);
   }, [fetchProducts]);
 
-  // ── Toggle favorite + navigate to Favorites screen on add ────────────────
   const handleHeartPress = useCallback((p: Product) => {
     if (favoriteIds.has(p.id)) {
       removeFavorite(p.id);
@@ -494,7 +521,7 @@ export default function BuyerHomeScreen({ navigation }: BuyerHomeScreenProps) {
         p.category.toLowerCase() === activeCategory.toLowerCase();
       const matchSearch = !searchQuery.trim() ||
         p.name.toLowerCase().includes(searchQuery.toLowerCase());
-      const matchSub    = activeSubTab === 'New In' ? isNewProduct(p) : true;
+      const matchSub    = activeSubTab === 'New In' ? isNewProduct(p, lastOpenAt) : true;
       return matchCat && matchSearch && matchSub;
     }),
     sortKey,
@@ -507,8 +534,9 @@ export default function BuyerHomeScreen({ navigation }: BuyerHomeScreenProps) {
       onNavigate={(id) => stackNav.navigate('ProductDetail', { productId: id })}
       onHeartPress={handleHeartPress}
       onAddToCart={handleAddToCart}
+      lastOpenAt={lastOpenAt}
     />
-  ), [favoriteIds, handleHeartPress, handleAddToCart, stackNav]);
+  ), [favoriteIds, handleHeartPress, handleAddToCart, stackNav, lastOpenAt]);
 
   const SortModal = () => (
     <Modal visible={sortOpen} transparent animationType="slide" onRequestClose={() => setSortOpen(false)}>
