@@ -198,12 +198,19 @@ export default function SellerDashboardScreen({ navigation }: SellerDashboardScr
 
   const fetchData = useCallback(async () => {
     if (!user?.id) return;
-    const [allOrders, s] = await Promise.all([
-      getMyOrdersAsSeller(user.id),
-      getSellerStats(user.id),
-    ]);
-    setOrders(allOrders);
-    setStats(s);
+    // ── Clear stale state before fetching so removed products don't linger ──
+    setOrders([]);
+    setStats({ totalOrders: 0, totalRevenue: 0, pendingOrders: 0 });
+    try {
+      const [allOrders, s] = await Promise.all([
+        getMyOrdersAsSeller(user.id),
+        getSellerStats(user.id),
+      ]);
+      setOrders(allOrders);
+      setStats(s);
+    } catch (e) {
+      console.warn('Failed to fetch dashboard data:', e);
+    }
   }, [user?.id]);
 
   useFocusEffect(useCallback(() => { fetchData(); }, [fetchData]));

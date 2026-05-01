@@ -58,7 +58,6 @@ const STATUS_LABEL: Record<OrderStatus, string> = {
   refunded:  'Refunded',
 };
 
-// ── Unified resolvers ─────────────────────────────────────────────────────────
 const resolveItemImage = (item: Order['items'][number]): string | undefined =>
   item.image ?? item.product?.images?.[0] ?? undefined;
 
@@ -76,8 +75,11 @@ export default function SellerOrdersScreen({ navigation }: SellerOrdersScreenPro
 
   const fetchOrders = useCallback(async () => {
     if (!user?.id) return;
+    // ── Clear stale state before fetching so removed products don't linger ──
+    setOrders([]);
     try {
-      setOrders(await getMyOrdersAsSeller(user.id));
+      const fresh = await getMyOrdersAsSeller(user.id);
+      setOrders(fresh);
     } catch (e) {
       console.warn('Failed to fetch orders:', e);
     } finally {
@@ -136,7 +138,6 @@ export default function SellerOrdersScreen({ navigation }: SellerOrdersScreenPro
     );
   };
 
-  // ── Filter + count badge helpers ──────────────────────────────────────────
   const isCancelledOrRefunded = (o: Order) =>
     o.status === 'cancelled' || o.status === 'refunded';
 
@@ -150,7 +151,6 @@ export default function SellerOrdersScreen({ navigation }: SellerOrdersScreenPro
     return orders.filter((o) => o.status === value).length;
   };
 
-  // ── Card renderer ─────────────────────────────────────────────────────────
   const renderOrder = ({ item }: { item: Order }) => {
     const badge      = STATUS_BADGE_STYLE[item.status] ?? { bg: '#F3F4F6', text: '#6B7280' };
     const nextStatus = NEXT_STATUS[item.status];
